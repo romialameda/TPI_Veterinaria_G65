@@ -1,43 +1,65 @@
-# Red de clínicas veterinarias y derivación de laboratorio
+# Sistema de Red de Clínicas Veterinarias y Derivación de Laboratorio
 
-Modelo de dominio en Python para clientes, mascotas, atenciones clínicas y el circuito
-trazable de derivación de muestras al laboratorio central.
+Trabajo Práctico Integrador para la cátedra de **Diseño de Aplicaciones Orientadas a Objetos (DAO)**.
 
-## Alcance actual
+---
 
-El proyecto implementa las entidades y reglas de negocio del flujo clínico y de laboratorio.
-Incluye registro de la cadena de custodia, verificación del precinto y evaluación de viabilidad
-por temperatura y vencimiento de la muestra. No incluye interfaz de usuario, almacenamiento
-persistente, autenticación ni integración con sistemas externos.
+## 📌 Descripción del Proyecto
 
-Los requisitos funcionales, casos de uso y el modelo de dominio están documentados en
-[docs/Requisitos-y-casos-de-uso.md](docs/Requisitos-y-casos-de-uso.md).
+El sistema modela la operatoria integral de una red de clínicas veterinarias conectadas con un laboratorio central de diagnóstico. Cubre la atención clínica del paciente, la emisión de órdenes de derivación, la logística y cadena de custodia de muestras biológicas y la generación de reportes gerenciales para la toma de decisiones.
 
-## Ejecutar pruebas
+---
 
-Desde la raíz del repositorio:
+## 🏗️ Arquitectura y Patrones de Diseño
 
-```powershell
-python -m unittest discover -s tests -v
-```
+El diseño desacopla responsabilidades aplicando principios SOLID y patrones de diseño de comportamiento:
 
-## Ejemplo breve
+### 1. Patrón State (Ciclo de Vida de la Muestra Biológica)
+Gestiona de forma dinámica las transiciones de estado de cada muestra sin utilizar estructuras condicionales complejas (`if/elif/else` anidados).
+* **Estados implementados:** `Extraída` $\rightarrow$ `Empaquetada` $\rightarrow$ `En tránsito` $\rightarrow$ `Recibida` $\rightarrow$ `Analizada` / `Rechazada`.
+* **Regla de integridad:** Si un precinto sanitario llega violado o roto, la muestra pasa automáticamente al estado `Rechazada`, bloqueando de forma irreversible cualquier intento de análisis posterior.
 
-```python
-from Models.Clinica import AtencionMedica, Cliente, Mascota
-from Models.laboratorio import OrdenDerivacion
+### 2. Patrón Observer (Auditoría y Notificaciones)
+Desacopla la entidad observable (`MuestraBiologica`) de las consecuencias colaterales derivadas de sus cambios de estado:
+* **`AuditorTrazabilidad`:** Registra cada transición de forma inmutable con marca temporal y motivo para auditorías forenses y seguimiento de cadena de custodia.
+* **`NotificadorCliente`:** Gestiona la comunicación con el cliente según las reglas de negocio:
+  * Emite un aviso urgente vía WhatsApp si la muestra es rechazada durante el traslado para coordinar una nueva extracción.
+  * Emite una notificación por correo únicamente cuando **todas** las muestras asociadas a una orden de derivación completaron su análisis.
 
-cliente = Cliente("cli-1", "Ana Pérez", "555-0101")
-mascota = Mascota("mas-1", "Luna", "felino", cliente.id)
-cliente.registrar_mascota(mascota)
+### 3. Patrón Strategy (Control Vacunatorio)
+Permite validar dinámicamente las vacunas obligatorias según la especie del animal (canino, felino, etc.) antes de derivar estudios o cerrar historias clínicas.
 
-atencion = AtencionMedica("ate-1", mascota.id, "Dra. Ruiz", "Control")
-mascota.registrar_atencion(atencion)
-orden = OrdenDerivacion("ord-1", atencion.id, "sangre", "Hemograma")
-atencion.emitir_derivacion(orden)
-```
+---
 
-El armado de un `RemitoBiologico` asocia muestras y órdenes, genera el identificador de
-precinto informado y cambia las órdenes a estado empaquetado. Se registra la custodia
-mediante `registrar_custodia`, y el laboratorio confirma recepción con
-`registrar_recepcion`. El análisis sólo puede emitirse si el remito se recibe viable.
+## 📂 Estructura del Repositorio
+
+```text
+TPI_Veterinaria_G65/
+│
+├── Models/
+│   ├── Clinica/
+│   │   ├── Persona.py
+│   │   ├── Cliente.py
+│   │   ├── Mascota.py
+│   │   ├── Consulta.py
+│   │   └── Vacuna.py
+│   ├── Laboratorio/
+│   │   ├── MuestraBiologica.py
+│   │   ├── EstadoMuestra.py
+│   │   ├── OrdenDerivacion.py
+│   │   ├── ResultadoAnalisis.py
+│   │   └── ObserverMuestra.py
+│   └── Logistica/
+│       ├── Conservadora.py
+│       ├── PrecintoSanitario.py
+│       └── RemitoBiologico.py
+│
+├── Reportes/
+│   └── GeneradorReportes.py
+│
+├── docs/
+│   ├── Diagrama_Clases_UML.png
+│   └── Diagrama_Estados_Muestra.png
+│
+├── main.py
+└── README.md

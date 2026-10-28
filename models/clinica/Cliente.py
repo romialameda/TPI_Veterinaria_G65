@@ -1,4 +1,4 @@
-from Models import Persona
+from Models.Clinica.Persona import Persona
 class Cliente(Persona):
     def __init__(self, dni, nombre, apellido, telefono, email):
         super().__init__(dni, nombre, apellido, telefono, email)

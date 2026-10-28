@@ -1,5 +1,5 @@
 from datetime import datetime
-from EstadoMuestra import EstadoExtraida
+from Models.Laboratorio.EstadoMuestra import EstadoExtraida
 
 
 class RegistroTrazabilidad:
@@ -21,24 +21,40 @@ class MuestraBiologica:
         self.orden_derivacion = orden_derivacion
         self.resultado = None
         self._historial_trazabilidad = []
+        self._observadores = []  # Lista de observadores suscritos (Patrón Observer)
 
         # Estado inicial obligatorio: Extraída
         self._estado_actual = EstadoExtraida()
         self._registrar_hito("Muestra extraída en clínica")
 
     def _registrar_hito(self, motivo):
+        """Registra el hito inmutable en la bitácora interna."""
         hito = RegistroTrazabilidad(self._estado_actual.nombre(), datetime.now(), motivo)
         self._historial_trazabilidad.append(hito)
 
+    # --- MÉTODOS DEL PATRÓN OBSERVER ---
+    def agregar_observador(self, observador):
+        """Suscribe un nuevo observador a los eventos de la muestra."""
+        if observador not in self._observadores:
+            self._observadores.append(observador)
+
+    def notificar_observadores(self, nuevo_estado, motivo):
+        """Notifica a todos los suscriptores cuando ocurre un cambio de estado."""
+        for obs in self._observadores:
+            obs.actualizar(self, nuevo_estado, motivo)
+
+    # --- TRANSICIÓN DE ESTADO ---
     def cambiar_estado(self, nuevo_estado, motivo=""):
         self._estado_actual = nuevo_estado
         self._registrar_hito(motivo)
+        # Notifica automáticamente a los observadores (auditoría, alertas)
+        self.notificar_observadores(nuevo_estado, motivo)
 
     @property
     def estado_actual(self):
         return self._estado_actual
 
-    # Delegación de operaciones al Patrón State
+    # --- DELEGACIÓN AL PATRÓN STATE ---
     def empaquetar(self, conservadora):
         self._estado_actual.empaquetar(self, conservadora)
 
@@ -51,6 +67,7 @@ class MuestraBiologica:
     def analizar(self, resultado):
         self._estado_actual.analizar(self, resultado)
 
+    # --- CONSULTA DE HISTORIAL ---
     def obtener_historial(self):
         """Retorna la copia de la trazabilidad inmutable de estados"""
         return list(self._historial_trazabilidad)

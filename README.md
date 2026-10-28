@@ -20,18 +20,15 @@ Gestiona de forma dinámica las transiciones de estado de cada muestra sin utili
 * **Regla de integridad:** Si un precinto sanitario llega violado o roto, la muestra pasa automáticamente al estado `Rechazada`, bloqueando de forma irreversible cualquier intento de análisis posterior.
 
 ### 2. Patrón Observer (Auditoría y Notificaciones)
-Desacopla la entidad observable (`MuestraBiologica`) de las consecuencias colaterales derivadas de sus cambios de estado:
-* **`AuditorTrazabilidad`:** Registra cada transición de forma inmutable con marca temporal y motivo para auditorías forenses y seguimiento de cadena de custodia.
+Desacopla la entidad observable (`MuestraBiologica`) de las consecuencias colaterales derivadas de sus cambios de estado[cite: 2]:
+* **`AuditorTrazabilidad`:** Registra cada transición de forma inmutable con marca temporal y motivo para auditorías forenses y seguimiento de cadena de custodia[cite: 2].
 * **`NotificadorCliente`:** Gestiona la comunicación con el cliente según las reglas de negocio:
-  * Emite un aviso urgente vía WhatsApp si la muestra es rechazada durante el traslado para coordinar una nueva extracción.
+  * Emite un aviso urgente vía WhatsApp si la muestra es rechazada durante el traslado para coordinar una nueva extracción[cite: 2].
   * Emite una notificación por correo únicamente cuando **todas** las muestras asociadas a una orden de derivación completaron su análisis.
-
-### 3. Patrón Strategy (Control Vacunatorio)
-Permite validar dinámicamente las vacunas obligatorias según la especie del animal (canino, felino, etc.) antes de derivar estudios o cerrar historias clínicas.
 
 ---
 
-## 📂 Estructura del Repositorio
+## 📂 Estructura del Repositorio[cite: 3]
 
 ```text
 TPI_Veterinaria_G65/
@@ -56,10 +53,6 @@ TPI_Veterinaria_G65/
 │
 ├── Reportes/
 │   └── GeneradorReportes.py
-│
-├── docs/
-│   ├── Diagrama_Clases_UML.png
-│   └── Diagrama_Estados_Muestra.png
 │
 ├── main.py
 └── README.md

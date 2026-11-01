@@ -1,0 +1,93 @@
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  background: #f4f6f8;
+  color: #222;
+}
+
+main { padding: 16px 24px; }
+
+.encabezado {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 12px 24px;
+  background: #1f6f5c;
+  color: white;
+}
+.encabezado nav { display: flex; gap: 16px; }
+.encabezado a { color: #d6efe8; text-decoration: none; }
+.encabezado a.active { color: white; font-weight: bold; text-decoration: underline; }
+.encabezado .usuario { margin-left: auto; }
+
+.login { max-width: 360px; margin: 80px auto; text-align: center; }
+.login form { text-align: left; }
+
+.tarjeta {
+  background: white;
+  border: 1px solid #dde3e8;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+}
+.tarjeta h3, .tarjeta h4 { margin-top: 0; }
+
+.columnas { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
+.columnas > .tarjeta { flex: 1; min-width: 260px; }
+.columnas > .ancha { flex: 2; }
+
+.fila { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; }
+
+label { display: block; margin-bottom: 8px; font-size: 14px; }
+label input, label select, label textarea { display: block; width: 100%; box-sizing: border-box; margin-top: 2px; }
+label.check { display: flex; gap: 6px; align-items: center; margin: 4px 0; }
+label.check input { width: auto; }
+.fila label { margin: 0; }
+
+input, select, textarea, button { font: inherit; padding: 5px 8px; }
+input.corto { width: 90px; }
+button { background: #1f6f5c; color: white; border: none; border-radius: 4px; cursor: pointer; }
+button:disabled { background: #9bb; cursor: default; }
+.encabezado button { background: white; color: #1f6f5c; }
+
+table { width: 100%; border-collapse: collapse; background: white; margin-bottom: 16px; }
+th, td { border-bottom: 1px solid #e3e8ec; padding: 6px 8px; text-align: left; font-size: 14px; }
+td.numero, th.numero { text-align: right; }
+tr.cancelado { color: #999; text-decoration: line-through; }
+
+.mensaje { background: #e8f4fd; border: 1px solid #b6dbf5; padding: 8px 12px; border-radius: 4px; }
+.error { color: #b00020; }
+.alerta { color: #a15c00; font-weight: bold; }
+.ayuda { color: #667; font-size: 13px; font-weight: normal; }
+.estado { background: #e6efe9; padding: 1px 6px; border-radius: 4px; font-size: 13px; }
+.orden { border-left: 3px solid #1f6f5c; padding-left: 10px; margin: 10px 0; }
+.comprobante { max-width: 520px; border-color: #1f6f5c; }
+
+input.fecha { width: 130px; }
+label input.fecha { width: 130px; display: block; }
+
+/* Sin flechitas en los campos numéricos */
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+input[type=number] { -moz-appearance: textfield; appearance: textfield; }
+
+input.importe { width: 110px; }
+label input.importe { width: 100%; }
+button.secundario { background: white; color: #1f6f5c; border: 1px solid #1f6f5c; }
+.derecha { margin-left: auto; }
+.ficha { border: 2px solid #1f6f5c; }
+.aviso { font-size: 14px; color: #1f6f5c; }
+tr.seleccionada { background: #e6efe9; }
+
+/* Campo de fecha con calendario */
+.campo-fecha { display: inline-flex; align-items: center; gap: 4px; position: relative; }
+label .campo-fecha { display: flex; margin-top: 2px; }
+.campo-fecha input.fecha { width: 130px; margin: 0; }
+button.calendario { padding: 4px 8px; }
+.calendario-oculto { position: absolute; left: 0; bottom: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; border: 0; padding: 0; }
+.estado.gris { background: #eee; color: #777; }
+.evento { border-top: 1px dashed #c9d3d9; margin-top: 8px; padding-top: 8px; }
+.evento label { font-size: 13px; }
+.evento input.corto { width: 120px; }
+.historia { margin-top: 16px; border-top: 1px solid #dde3e8; padding-top: 8px; }
+.historia summary { font-weight: bold; cursor: pointer; font-size: 17px; }

@@ -51,8 +51,40 @@ class GeneradorReportes:
     # -------------------------------------------------------------------------
     # Reporte 2: Muestras rechazadas por fallas en el transporte
     # -------------------------------------------------------------------------
-    def reporte_muestras_rechazadas(self):
-        rechazadas = [m for m in self.muestras if m.esta_rechazada()]
+    @staticmethod
+    def _coincide_filtro(valor, filtro):
+        if filtro is None:
+            return True
+        return str(filtro).strip().casefold() in str(valor).strip().casefold()
+
+    def reporte_muestras_rechazadas(
+        self, especie=None, veterinario=None, contenedor=None, ordenar_por=None, descendente=False
+    ):
+        """Lista muestras rechazadas con filtros opcionales y orden configurable.
+
+        ``contenedor`` corresponde al número de la conservadora asociada al remito.
+        ``ordenar_por`` admite: codigo, tipo, paciente, especie, veterinario o contenedor.
+        """
+        muestras_filtradas = []
+        for muestra in self.muestras:
+            consulta = muestra.orden_derivacion.consulta
+            mascota = consulta.mascota
+            nombre_veterinario = consulta.veterinario.nombre_completo()
+            numero_contenedor = (
+                muestra.remito.conservadora.numero
+                if muestra.remito and muestra.remito.conservadora
+                else None
+            )
+
+            if not self._coincide_filtro(mascota.especie, especie):
+                continue
+            if not self._coincide_filtro(nombre_veterinario, veterinario):
+                continue
+            if contenedor is not None and str(numero_contenedor).casefold() != str(contenedor).strip().casefold():
+                continue
+            muestras_filtradas.append(muestra)
+
+        rechazadas = [m for m in muestras_filtradas if m.esta_rechazada()]
         por_clinica = Counter(m.orden_derivacion.clinica.nombre for m in rechazadas)
         por_transportista = Counter(m.remito.transportista for m in rechazadas if m.remito)
 
@@ -61,6 +93,9 @@ class GeneradorReportes:
                 "codigo": m.codigo_muestra,
                 "tipo": m.tipo_muestra,
                 "paciente": m.orden_derivacion.consulta.mascota.nombre,
+                "especie": m.orden_derivacion.consulta.mascota.especie,
+                "veterinario": m.orden_derivacion.consulta.veterinario.nombre_completo(),
+                "contenedor": m.remito.conservadora.numero if m.remito else None,
                 "remito": m.remito.numero if m.remito else None,
                 "transportista": m.remito.transportista if m.remito else None,
                 "observacion_precinto": m.remito.precinto.observaciones_inspeccion if m.remito else "",
@@ -68,10 +103,24 @@ class GeneradorReportes:
             }
             for m in rechazadas
         ]
+        campos_ordenables = {"codigo", "tipo", "paciente", "especie", "veterinario", "contenedor"}
+        if ordenar_por is not None:
+            if ordenar_por not in campos_ordenables:
+                raise ValueError(f"Campo de orden inválido: {ordenar_por}. Opciones: {', '.join(sorted(campos_ordenables))}")
+            detalle.sort(
+                key=lambda fila: (
+                    fila[ordenar_por].casefold()
+                    if isinstance(fila[ordenar_por], str)
+                    else fila[ordenar_por]
+                ),
+                reverse=descendente,
+            )
+            detalle.sort(key=lambda fila: fila[ordenar_por] is None)
+
         return {
-            "total_muestras": len(self.muestras),
+            "total_muestras": len(muestras_filtradas),
             "cantidad_rechazadas": len(rechazadas),
-            "tasa_rechazo_pct": self._porcentaje(len(rechazadas), len(self.muestras)),
+            "tasa_rechazo_pct": self._porcentaje(len(rechazadas), len(muestras_filtradas)),
             "por_clinica": dict(por_clinica),
             "por_transportista": dict(por_transportista),
             "detalle": detalle,

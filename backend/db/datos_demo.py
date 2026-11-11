@@ -62,31 +62,32 @@ def cargar_datos_demo(repo, clientes, atencion, laboratorio, usuarios):
     # Hace 3 días: Simón con turno -> panel infeccioso -> resultados listos
     # =================================================================
     t = turno_ya_dado(momento(-3, 9), "Consulta", simon, lopez, "Fiebre y decaimiento")
-    c = atencion.atender_turno(t, momento(-3, 9), 18000.0)
+    c = atencion.atender_turno(t, momento(-3, 9))
     atencion.registrar_diagnostico(c, "Sospecha de infección bacteriana", "Antipirético; se deriva panel infeccioso")
     orden = atencion.emitir_orden_derivacion(momento(-3, 9, 30), c, "Panel infeccioso", lab)
     sangre = laboratorio.registrar_extraccion("Sangre con EDTA", momento(-3, 9, 35), orden)
     orina = laboratorio.registrar_extraccion("Orina por cistocentesis", momento(-3, 9, 40), orden)
     remito = laboratorio.empaquetar(momento(-3, 10), centro, lab, conservadora_12, [sangre, orina])
     laboratorio.despachar(remito, momento(-3, 10, 30), "Logística Andina - Móvil 3")
-    laboratorio.registrar_evento_traslado(remito, momento(-3, 11), "Ruta 9 km 15", "Control de temperatura", 4.2)
+    laboratorio.registrar_evento_traslado(remito, momento(-3, 11), "Ruta 9 km 15", "Sin novedad", "Paso por punto de control")
     laboratorio.recibir_remito(remito, momento(-3, 12), True, tevez)
-    laboratorio.registrar_resultado(momento(-3, 15), sangre, {"Leucocitos": "18.500/µL (elevado)", "Hematocrito": "42%"},
+    laboratorio.registrar_resultado(momento(-3, 15), sangre,
+                                    "Leucocitos 18.500/µL (elevado), hematocrito 42%. "
                                     "Leucocitosis compatible con infección bacteriana.", tevez)
-    laboratorio.registrar_resultado(momento(-3, 17), orina, {"Densidad": "1.025", "Bacterias": "Abundantes"},
-                                    "Compatible con cistitis bacteriana.", tevez)
-    atencion.emitir_comprobante(momento(-3, 17, 30), c, 4500.0)
+    laboratorio.registrar_resultado(momento(-3, 17), orina,
+                                    "Densidad 1.025, bacterias abundantes. Compatible con cistitis bacteriana.", tevez)
+    atencion.emitir_comprobante(momento(-3, 17, 30), c)
 
     # =================================================================
     # Hace 2 días: Rocco de urgencia -> biopsia -> precinto roto -> re-extracción en tránsito
     # =================================================================
-    c = atencion.registrar_urgencia(momento(-2, 10), rocco, gomez, "Decaimiento y pérdida de apetito", 25000.0)
+    c = atencion.registrar_urgencia(momento(-2, 10), rocco, gomez, "Decaimiento y pérdida de apetito")
     atencion.registrar_diagnostico(c, "Hepatomegalia a la palpación", "Hepatoprotector; biopsia hepática")
     orden = atencion.emitir_orden_derivacion(momento(-2, 10, 30), c, "Histopatología", lab)
     biopsia = laboratorio.registrar_extraccion("Biopsia de tejido", momento(-2, 10, 45), orden)
     remito = laboratorio.empaquetar(momento(-2, 11), norte, lab, conservadora_15, [biopsia])
     laboratorio.despachar(remito, momento(-2, 11, 30), "Logística Andina - Móvil 7")
-    laboratorio.registrar_evento_traslado(remito, momento(-2, 12), "Ruta 19 km 12", "Bache fuerte, conservadora golpeada", 9.0)
+    laboratorio.registrar_evento_traslado(remito, momento(-2, 12), "Ruta 19 km 12", "Golpe o caída de la conservadora", "Bache fuerte")
     laboratorio.recibir_remito(remito, momento(-2, 13), False, tevez, "Precinto cortado y tapa mal cerrada")
     # Ayer se volvió a extraer y hoy está viajando (el bioquímico tiene que recibirlo)
     biopsia_2 = laboratorio.solicitar_reextraccion(biopsia, momento(-1, 10))
@@ -97,17 +98,23 @@ def cargar_datos_demo(repo, clientes, atencion, laboratorio, usuarios):
     # Ayer a la tarde: Luna (control, vacuna vencida) -> urianálisis recibido, falta analizar
     # =================================================================
     t = turno_ya_dado(momento(-1, 16, 30), "Control", luna, herrera, "Control anual")
-    c = atencion.atender_turno(t, momento(-1, 16, 30), 12000.0)
+    c = atencion.atender_turno(t, momento(-1, 16, 30))
     atencion.registrar_diagnostico(c, "Buen estado general", "Se indica refuerzo de vacunas")
     orden = atencion.emitir_orden_derivacion(momento(-1, 17), c, "Urianálisis", lab)
     orina_luna = laboratorio.registrar_extraccion("Orina por micción", momento(-1, 17, 5), orden)
-    remito = laboratorio.empaquetar(momento(-1, 17, 30), centro, lab, conservadora_12, [orina_luna])
+    orden_2 = atencion.emitir_orden_derivacion(momento(-1, 17), c, "Hemograma", lab)
+    sangre_luna = laboratorio.registrar_extraccion("Sangre con EDTA", momento(-1, 17, 10), orden_2)
+    remito = laboratorio.empaquetar(momento(-1, 17, 30), centro, lab, conservadora_12, [orina_luna, sangre_luna])
     laboratorio.despachar(remito, momento(-1, 18), "Logística Andina - Móvil 3")
-    laboratorio.recibir_remito(remito, momento(-1, 19), True, tevez)
+    laboratorio.registrar_evento_traslado(remito, momento(-1, 18, 30), "Av. Colón y General Paz",
+                                          "Conservadora abierta o dañada", "La tapa llegó floja")
+    # Precinto intacto, pero el tubo de sangre llegó mal: rechazo puntual (la orina se recibe)
+    laboratorio.recibir_remito(remito, momento(-1, 19), True, tevez,
+                               rechazos={sangre_luna.codigo_muestra: ("Muestra hemolizada o coagulada", "")})
 
     # Ayer a la tarde: Toby -> coproparasitológico extraído, falta armar el remito (secretario)
     t = turno_ya_dado(momento(-1, 17), "Consulta", toby, acosta, "Diarrea intermitente")
-    c = atencion.atender_turno(t, momento(-1, 17), 15000.0)
+    c = atencion.atender_turno(t, momento(-1, 17))
     atencion.registrar_diagnostico(c, "Gastroenteritis leve", "Dieta blanda y probióticos")
     orden = atencion.emitir_orden_derivacion(momento(-1, 17, 30), c, "Coproparasitológico", lab)
     laboratorio.registrar_extraccion("Materia fecal", momento(-1, 17, 35), orden)

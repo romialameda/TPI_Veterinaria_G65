@@ -171,8 +171,8 @@ CREATE TABLE IF NOT EXISTS evento_traslado (
     id_remito    INTEGER NOT NULL REFERENCES remito(id_remito),
     fecha_hora   TEXT NOT NULL,
     ubicacion    TEXT NOT NULL,
-    descripcion  TEXT NOT NULL,
-    temperatura  REAL
+    novedad      TEXT NOT NULL DEFAULT 'Sin novedad',   -- Sin novedad, Demora, Golpe, Cadena de frío interrumpida...
+    descripcion  TEXT NOT NULL DEFAULT ''               -- Observación libre
 );
 
 CREATE TABLE IF NOT EXISTS muestra (
@@ -199,15 +199,8 @@ CREATE TABLE IF NOT EXISTS resultado_analisis (
     id_resultado          INTEGER PRIMARY KEY AUTOINCREMENT,
     codigo_muestra        TEXT NOT NULL UNIQUE REFERENCES muestra(codigo_muestra),   -- un resultado por muestra
     fecha_emision         TEXT NOT NULL,
-    observaciones         TEXT,
+    informe               TEXT NOT NULL,                                             -- texto libre del bioquímico
     matricula_bioquimico  TEXT NOT NULL REFERENCES bioquimico(matricula)
-);
-
-CREATE TABLE IF NOT EXISTS valor_resultado (
-    id_resultado  INTEGER NOT NULL REFERENCES resultado_analisis(id_resultado),
-    parametro     TEXT NOT NULL,
-    valor         TEXT NOT NULL,
-    PRIMARY KEY (id_resultado, parametro)
 );
 
 -- ---------------------------------------------------------------------
@@ -221,4 +214,17 @@ CREATE TABLE IF NOT EXISTS usuario (
     matricula_veterinario  TEXT REFERENCES veterinario(matricula),
     matricula_bioquimico   TEXT REFERENCES bioquimico(matricula),
     dni_cliente            TEXT REFERENCES cliente(dni)
+);
+
+-- ---------------------------------------------------------------------
+-- Avisos generados por los observadores (patrón Observer). El envío es simulado:
+-- el destinatario los ve en el sistema.
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS notificacion (
+    id_notificacion    INTEGER PRIMARY KEY AUTOINCREMENT,
+    fecha_hora         TEXT NOT NULL,
+    destinatario_tipo  TEXT NOT NULL CHECK (destinatario_tipo IN ('Cliente', 'Clínica')),
+    destinatario_id    TEXT NOT NULL,      -- DNI del cliente o id de la clínica
+    canal              TEXT NOT NULL,
+    mensaje            TEXT NOT NULL
 );

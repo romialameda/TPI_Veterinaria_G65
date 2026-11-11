@@ -1,13 +1,15 @@
 from abc import ABC, abstractmethod
 
+from models import Validaciones
+
 
 class Persona(ABC):
     def __init__(self, dni, nombre, apellido, telefono, email):
-        self.dni = dni
-        self.nombre = nombre
-        self.apellido = apellido
-        self.telefono = telefono
-        self.email = email
+        self.dni = Validaciones.dni(dni)
+        self.nombre = Validaciones.solo_letras(nombre, "Nombre")
+        self.apellido = Validaciones.solo_letras(apellido, "Apellido")
+        self.telefono = Validaciones.telefono(telefono)
+        self.email = Validaciones.email(email)
 
     @abstractmethod
     def rol(self):

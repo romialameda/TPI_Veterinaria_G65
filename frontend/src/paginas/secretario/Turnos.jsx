@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { api, hoy, hora } from '../../api.js'
+import { api, hoy, hora, pesos } from '../../api.js'
 import CampoFecha from '../../componentes/CampoFecha.jsx'
+import Urgencia from './Urgencia.jsx'
 
 const TURNO_VACIO = { id_mascota: '', matricula_veterinario: '', tipo: 'Consulta', hora: '', motivo: '' }
 
@@ -76,6 +77,7 @@ export default function Turnos() {
       {mensaje && <p className="mensaje">{mensaje}</p>}
 
       <div className="columnas">
+        <div className="pila">
         <form onSubmit={agendar} className="tarjeta">
           <h3>Nuevo turno</h3>
           {diaPasado && <p className="alerta">No se pueden dar turnos para un día que ya pasó.</p>}
@@ -94,9 +96,12 @@ export default function Turnos() {
           </label>
           <label>Tipo de turno
             <select value={nuevo.tipo} onChange={(e) => setNuevo({ ...nuevo, tipo: e.target.value, hora: '' })}>
-              {tipos.map((t) => <option key={t.tipo} value={t.tipo}>{t.tipo} ({t.duracion_minutos} min)</option>)}
+              {tipos.map((t) => <option key={t.tipo} value={t.tipo}>{t.tipo} ({t.duracion_minutos} min) - {pesos(t.precio)}</option>)}
             </select>
           </label>
+          {tipos.find((t) => t.tipo === nuevo.tipo) && (
+            <p className="precio">Precio a informar al cliente: <strong>{pesos(tipos.find((t) => t.tipo === nuevo.tipo).precio)}</strong></p>
+          )}
           <label>Horario
             <select {...campo('hora')} required disabled={!nuevo.matricula_veterinario || diaPasado}>
               <option value="">{nuevo.matricula_veterinario ? (horarios.length ? 'Elegir...' : 'Sin horarios libres') : 'Primero elegí el veterinario'}</option>
@@ -106,21 +111,23 @@ export default function Turnos() {
           <label>Motivo <input {...campo('motivo')} required /></label>
           <button type="submit" disabled={diaPasado}>Agendar</button>
         </form>
+        <Urgencia mascotas={mascotas} veterinarios={veterinarios} />
+        </div>
 
         <div className="tarjeta ancha">
           <h3>Turnos del día</h3>
           {turnos.length === 0 && <p>No hay turnos.</p>}
-          <table>
-            <thead><tr><th>Horario</th><th>Tipo</th><th>Mascota</th><th>Responsable</th><th>Veterinario</th><th>Motivo</th><th>Estado</th></tr></thead>
+          <div className="tabla-scroll">
+          <table className="compacta">
+            <thead><tr><th>Horario</th><th>Paciente</th><th>Veterinario</th><th>Motivo</th><th className="numero">Precio</th><th>Estado</th></tr></thead>
             <tbody>
               {turnos.map((t) => (
                 <tr key={t.id_turno} className={t.cancelado ? 'cancelado' : ''}>
-                  <td>{hora(t.inicio)} a {hora(t.fin)}</td>
-                  <td>{t.tipo}</td>
-                  <td>{t.mascota} ({t.especie})</td>
-                  <td>{t.responsable}</td>
-                  <td>{t.veterinario}</td>
+                  <td className="nowrap">{hora(t.inicio)} a {hora(t.fin)}<small>{t.tipo}</small></td>
+                  <td>{t.mascota} ({t.especie})<small>{t.responsable}</small></td>
+                  <td>{t.veterinario}<small>{t.clinica}</small></td>
                   <td>{t.motivo}</td>
+                  <td className="numero">{pesos(t.precio)}</td>
                   <td>
                     {t.cancelado ? 'Cancelado'
                       : t.atendido ? <span className="estado">Atendido</span>
@@ -131,6 +138,7 @@ export default function Turnos() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
     </>

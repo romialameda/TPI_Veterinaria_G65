@@ -15,6 +15,7 @@ from dao.RemitoDAO import RemitoDAO
 from dao.MuestraDAO import MuestraDAO
 from dao.ResultadoDAO import ResultadoDAO
 from dao.UsuarioDAO import UsuarioDAO
+from dao.NotificacionDAO import NotificacionDAO
 
 
 class Repositorio:
@@ -41,6 +42,7 @@ class Repositorio:
         self.muestras = {}        # codigo -> MuestraBiologica
         self.resultados = []
         self.usuarios = {}        # nombre_usuario -> Usuario
+        self.notificaciones = []
 
     def cargar(self):
         """Lee toda la base respetando el orden de las claves foráneas."""
@@ -65,4 +67,5 @@ class Repositorio:
         self.resultados = ResultadoDAO(db).listar(self.muestras, self.bioquimicos)
         self.usuarios = {u.nombre_usuario: u for u in UsuarioDAO(db).listar(
             self.veterinarios, self.bioquimicos, self.clientes)}
+        self.notificaciones = NotificacionDAO(db).listar()
         return self

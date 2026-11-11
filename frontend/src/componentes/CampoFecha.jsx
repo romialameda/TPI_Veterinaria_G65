@@ -6,6 +6,7 @@ import { fecha } from '../api.js'
 // Recibe y devuelve la fecha como 'AAAA-MM-DD'. Opcionales: min y max ('AAAA-MM-DD').
 export default function CampoFecha({ valor, onCambio, required, min, max }) {
   const [texto, setTexto] = useState(valor ? fecha(valor) : '')
+  const [fueraDeRango, setFueraDeRango] = useState('')
   const ultimoEnviado = useRef(valor)
   const calendario = useRef(null)
 
@@ -18,6 +19,12 @@ export default function CampoFecha({ valor, onCambio, required, min, max }) {
   }, [valor])
 
   function enviar(nuevo) {
+    // Fechas fuera del rango permitido (por ejemplo, futuras en un filtro) no se aplican
+    let motivo = ''
+    if (nuevo && max && nuevo > max) motivo = `No puede ser posterior al ${fecha(max)}`
+    if (nuevo && min && nuevo < min) motivo = `No puede ser anterior al ${fecha(min)}`
+    setFueraDeRango(motivo)
+    if (motivo) nuevo = ''
     ultimoEnviado.current = nuevo
     onCambio(nuevo)
   }
@@ -57,10 +64,12 @@ export default function CampoFecha({ valor, onCambio, required, min, max }) {
   return (
     <span className="campo-fecha">
       <input value={texto} onChange={escribir} placeholder="dd/mm/aaaa" inputMode="numeric"
-        pattern="\d{2}/\d{2}/\d{4}" title="Fecha en formato dd/mm/aaaa" required={required} className="fecha" />
+        pattern="\d{2}/\d{2}/\d{4}" title={fueraDeRango || 'Fecha en formato dd/mm/aaaa'} required={required}
+        className={'fecha' + (fueraDeRango ? ' fuera-de-rango' : '')} />
       <button type="button" className="secundario calendario" onClick={abrirCalendario} title="Elegir en el calendario">📅</button>
       <input ref={calendario} type="date" value={valor || ''} min={min} max={max} onChange={elegir}
         className="calendario-oculto" tabIndex={-1} aria-hidden="true" />
+      {fueraDeRango && <small className="error">{fueraDeRango}</small>}
     </span>
   )
 }

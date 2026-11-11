@@ -1,4 +1,5 @@
 from models.clinica.Persona import Persona
+from models import Validaciones
 
 
 class Cliente(Persona):
@@ -28,9 +29,9 @@ class Cliente(Persona):
 
     def actualizar_contacto(self, telefono=None, email=None):
         if telefono is not None:
-            self.telefono = telefono
+            self.telefono = Validaciones.telefono(telefono)
         if email is not None:
-            self.email = email
+            self.email = Validaciones.email(email)
 
     def __str__(self):
         return f"{super().__str__()} | Mascotas a cargo: {self.cantidad_mascotas()}"

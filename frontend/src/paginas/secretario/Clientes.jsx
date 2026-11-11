@@ -4,6 +4,8 @@ import CampoFecha from '../../componentes/CampoFecha.jsx'
 
 const CLIENTE_VACIO = { dni: '', nombre: '', apellido: '', telefono: '', email: '', contrasena: '' }
 const MASCOTA_VACIA = { nombre: '', especie: 'Canino', raza: '', fecha_nacimiento: '', peso: '', dni_responsable: '' }
+// Nombres y apellidos: solo letras, espacios, apóstrofo y guion
+const SOLO_LETRAS = { pattern: "[A-Za-zÁÉÍÓÚÜÑáéíóúüñ' \\-]+", title: 'Solo letras', maxLength: 60 }
 const VACUNA_VACIA = { id_mascota: '', nombre: '', fecha_aplicacion: hoy() }
 
 export default function Clientes() {
@@ -75,12 +77,19 @@ export default function Clientes() {
       <div className="columnas">
         <form onSubmit={altaCliente} className="tarjeta">
           <h3>Nuevo cliente</h3>
-          <label>DNI <input {...campo(setNuevoCliente, nuevoCliente, 'dni')} required /></label>
-          <label>Nombre <input {...campo(setNuevoCliente, nuevoCliente, 'nombre')} required /></label>
-          <label>Apellido <input {...campo(setNuevoCliente, nuevoCliente, 'apellido')} required /></label>
-          <label>Teléfono <input {...campo(setNuevoCliente, nuevoCliente, 'telefono')} required /></label>
-          <label>Email <input type="email" {...campo(setNuevoCliente, nuevoCliente, 'email')} /></label>
-          <label>Contraseña para ingresar <input {...campo(setNuevoCliente, nuevoCliente, 'contrasena')} required /></label>
+          <label>DNI
+            <input value={nuevoCliente.dni} inputMode="numeric" maxLength={8} placeholder="Solo números"
+              pattern="\d{7,8}" title="7 u 8 números, sin puntos" required
+              onChange={(e) => setNuevoCliente({ ...nuevoCliente, dni: e.target.value.replace(/\D/g, '') })} />
+          </label>
+          <label>Nombre <input {...campo(setNuevoCliente, nuevoCliente, 'nombre')} {...SOLO_LETRAS} required /></label>
+          <label>Apellido <input {...campo(setNuevoCliente, nuevoCliente, 'apellido')} {...SOLO_LETRAS} required /></label>
+          <label>Teléfono
+            <input {...campo(setNuevoCliente, nuevoCliente, 'telefono')} inputMode="tel" placeholder="351-4567890"
+              pattern="\+?[\d \-]{7,20}" title="Números, espacios o guiones (mínimo 7 números)" required />
+          </label>
+          <label>Email <input type="email" {...campo(setNuevoCliente, nuevoCliente, 'email')} placeholder="nombre@mail.com" /></label>
+          <label>Contraseña para ingresar <input {...campo(setNuevoCliente, nuevoCliente, 'contrasena')} minLength={4} title="Mínimo 4 caracteres" required /></label>
           <button type="submit">Crear cliente</button>
         </form>
 
@@ -92,7 +101,7 @@ export default function Clientes() {
               {clientes.map((c) => <option key={c.dni} value={c.dni}>{c.nombre_completo} ({c.dni})</option>)}
             </select>
           </label>
-          <label>Nombre <input {...campo(setNuevaMascota, nuevaMascota, 'nombre')} required /></label>
+          <label>Nombre <input {...campo(setNuevaMascota, nuevaMascota, 'nombre')} maxLength={40} required /></label>
           <label>Especie
             <select {...campo(setNuevaMascota, nuevaMascota, 'especie')}>
               <option>Canino</option>

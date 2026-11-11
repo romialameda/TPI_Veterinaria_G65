@@ -9,7 +9,8 @@ export default function Logistica() {
   const [conservadoras, setConservadoras] = useState([])
   const [nuevo, setNuevo] = useState({ id_clinica: '', id_laboratorio: '', numero_conservadora: '', codigos: [] })
   const [transportista, setTransportista] = useState({})  // { id_remito: texto }
-  const [evento, setEvento] = useState({})                // { id_remito: { ubicacion, descripcion, temperatura } }
+  const [evento, setEvento] = useState({})                // { id_remito: { ubicacion, novedad, observacion } }
+  const [novedades, setNovedades] = useState([])          // Opciones: Sin novedad, Demora, Golpe...
   const [mensaje, setMensaje] = useState('')
 
   async function cargar() {
@@ -21,6 +22,7 @@ export default function Logistica() {
   useEffect(() => {
     api.get('/clinicas').then(setClinicas)
     api.get('/laboratorios').then(setLaboratorios)
+    api.get('/novedades-traslado').then(setNovedades)
     cargar()
   }, [])
 
@@ -80,7 +82,7 @@ export default function Logistica() {
           <label>Conservadora disponible
             <select value={nuevo.numero_conservadora} onChange={(e) => setNuevo({ ...nuevo, numero_conservadora: e.target.value })} required>
               <option value="">Elegir...</option>
-              {conservadoras.map((c) => <option key={c.numero} value={c.numero}>#{c.numero} (hasta {c.capacidad_maxima} muestras, {c.temperatura})</option>)}
+              {conservadoras.map((c) => <option key={c.numero} value={c.numero}>#{c.numero} (hasta {c.capacidad_maxima} muestras)</option>)}
             </select>
           </label>
         </div>
@@ -99,18 +101,18 @@ export default function Logistica() {
       <h3>Remitos</h3>
       {remitos.map((r) => (
         <div key={r.id_remito} className="tarjeta">
-          <h4>Remito #{r.id_remito} <span className="estado">{r.estado}</span></h4>
+          <h4>Remito #{r.id_remito} <span className="estado">{r.estado}{r.con_observaciones ? ' con observaciones' : ''}</span></h4>
           <p>
             {r.clinica} → {r.laboratorio} | Conservadora #{r.conservadora} | Precinto {r.precinto.codigo}
             {r.transportista && <> | Transporte: {r.transportista}</>}
           </p>
-          <p>Muestras: {r.muestras.map((m) => `${m.codigo} (${m.estado})`).join(', ')}</p>
+          <p>Muestras: {r.muestras.map((m) => `${m.codigo} (${m.estado}${m.motivo_rechazo && m.estado === 'Rechazada' && r.con_observaciones ? ': ' + m.motivo_rechazo.split(': ').pop() : ''})`).join(', ')}</p>
 
           {r.estado === 'En preparación' && (
             <div className="fila">
               <input placeholder="Transportista" value={transportista[r.id_remito] || ''}
                 onChange={(e) => setTransportista({ ...transportista, [r.id_remito]: e.target.value })} />
-              <button onClick={() => ejecutar(() => api.post(`/remitos/${r.id_remito}/despachar`, { transportista: transportista[r.id_remito] || '' }), 'Remito despachado.')}>
+              <button disabled={!(transportista[r.id_remito] || '').trim()} onClick={() => ejecutar(() => api.post(`/remitos/${r.id_remito}/despachar`, { transportista: transportista[r.id_remito] || '' }), 'Remito despachado.')}>
                 Despachar
               </button>
             </div>
@@ -119,7 +121,11 @@ export default function Logistica() {
           {r.eventos.length > 0 && (
             <ul>
               {r.eventos.map((ev, i) => (
-                <li key={i}>{fechaHora(ev.fecha_hora)} - {ev.ubicacion}: {ev.descripcion}{ev.temperatura != null && ` (${ev.temperatura}°C)`}</li>
+                <li key={i}>
+                  {fechaHora(ev.fecha_hora)} - {ev.ubicacion}:{' '}
+                  <span className={ev.tiene_novedad ? 'alerta' : ''}>{ev.novedad}</span>
+                  {ev.observacion && ` - ${ev.observacion}`}
+                </li>
               ))}
             </ul>
           )}
@@ -127,25 +133,33 @@ export default function Logistica() {
           {r.estado === 'En tránsito' && (
             <div className="evento">
               <strong>Registrar evento del traslado</strong>
-              <p className="ayuda">Lo que informa el transportista en cada punto del viaje.</p>
+              <p className="ayuda">Lo que informa el transportista en cada punto del viaje. Las novedades le llegan al laboratorio al recibir el remito.</p>
               <div className="fila">
               <label>Ubicación
-                <input placeholder="Ej: Ruta 9 km 15" onChange={(e) => setEvento({ ...evento, [r.id_remito]: { ...evento[r.id_remito], ubicacion: e.target.value } })} />
+                <input placeholder="Ej: Ruta 9 km 15" value={evento[r.id_remito]?.ubicacion || ''}
+                  onChange={(e) => setEvento({ ...evento, [r.id_remito]: { ...evento[r.id_remito], ubicacion: e.target.value } })} />
               </label>
-              <label>Qué pasó
-                <input placeholder="Ej: Control de temperatura / Demora" onChange={(e) => setEvento({ ...evento, [r.id_remito]: { ...evento[r.id_remito], descripcion: e.target.value } })} />
+              <label>Novedad
+                <select value={evento[r.id_remito]?.novedad || 'Sin novedad'}
+                  onChange={(e) => setEvento({ ...evento, [r.id_remito]: { ...evento[r.id_remito], novedad: e.target.value } })}>
+                  {novedades.map((n) => <option key={n}>{n}</option>)}
+                </select>
               </label>
-              <label>Temperatura en la conservadora (°C, opcional)
-                <input placeholder={`Objetivo: ${r.conservadora_temperatura || '4°C'}`} inputMode="decimal" className="corto"
-                  onChange={(e) => setEvento({ ...evento, [r.id_remito]: { ...evento[r.id_remito], temperatura: e.target.value.replace(',', '.') } })} />
+              <label>Observación {evento[r.id_remito]?.novedad === 'Otro' ? '(obligatoria)' : '(opcional)'}
+                <input placeholder="Ej: paso por control policial" value={evento[r.id_remito]?.observacion || ''}
+                  onChange={(e) => setEvento({ ...evento, [r.id_remito]: { ...evento[r.id_remito], observacion: e.target.value } })} />
               </label>
-              <button onClick={() => {
-                const ev = evento[r.id_remito] || {}
-                ejecutar(() => api.post(`/remitos/${r.id_remito}/eventos`, {
-                  ubicacion: ev.ubicacion || '', descripcion: ev.descripcion || '',
-                  temperatura: ev.temperatura ? Number(ev.temperatura) : null,
-                }), 'Evento registrado.')
-              }}>Registrar evento</button>
+              <button disabled={!(evento[r.id_remito]?.ubicacion || '').trim()
+                || (evento[r.id_remito]?.novedad === 'Otro' && !(evento[r.id_remito]?.observacion || '').trim())}
+                onClick={() => {
+                  const ev = evento[r.id_remito] || {}
+                  ejecutar(async () => {
+                    await api.post(`/remitos/${r.id_remito}/eventos`, {
+                      ubicacion: ev.ubicacion || '', novedad: ev.novedad || 'Sin novedad', observacion: ev.observacion || '',
+                    })
+                    setEvento({ ...evento, [r.id_remito]: {} })
+                  }, 'Evento registrado.')
+                }}>Registrar evento</button>
               </div>
             </div>
           )}

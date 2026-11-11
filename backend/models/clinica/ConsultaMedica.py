@@ -1,3 +1,6 @@
+from models import Validaciones
+
+
 class ConsultaMedica:
     """
     Atención clínica de una mascota. Diagnóstico y tratamiento son texto libre,
@@ -10,8 +13,11 @@ class ConsultaMedica:
     def __init__(self, numero, fecha_hora, mascota, veterinario, motivo, costo, tipo_atencion="Consulta", turno=None):
         if tipo_atencion not in self.TIPOS_ATENCION:
             raise ValueError(f"Tipo de atención inválido: {tipo_atencion}. Opciones: {', '.join(self.TIPOS_ATENCION)}")
-        if costo < 0:
-            raise ValueError("El costo de la consulta no puede ser negativo.")
+        if costo is None or costo <= 0:
+            raise ValueError("El costo de la consulta debe ser mayor a cero.")
+        if costo > 10_000_000:
+            raise ValueError("El costo de la consulta es demasiado alto.")
+        motivo = Validaciones.texto_obligatorio(motivo, "Motivo")
         if turno is not None and (turno.mascota is not mascota or turno.veterinario is not veterinario):
             raise ValueError("La consulta debe ser de la mascota y el veterinario del turno.")
 

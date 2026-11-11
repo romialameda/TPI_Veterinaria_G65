@@ -1,5 +1,7 @@
 from datetime import timedelta
 
+from models import Validaciones
+
 
 class Turno:
     """
@@ -23,7 +25,7 @@ class Turno:
         self.duracion_minutos = duracion
         self.mascota = mascota
         self.veterinario = veterinario
-        self.motivo = motivo
+        self.motivo = Validaciones.texto_obligatorio(motivo, "Motivo")
         self.cancelado = False
         self.consulta = None  # Se completa cuando el veterinario lo atiende
 
@@ -38,6 +40,16 @@ class Turno:
     def se_superpone_con(self, otro):
         """Dos turnos se superponen si uno empieza antes de que termine el otro."""
         return self.inicio < otro.fin and otro.inicio < self.fin
+
+    def estado(self, hoy):
+        """Atendido, Cancelado, Ausente (era de un día anterior y no se atendió) o Pendiente."""
+        if self.cancelado:
+            return "Cancelado"
+        if self.atendido:
+            return "Atendido"
+        if self.inicio.date() < hoy:
+            return "Ausente"
+        return "Pendiente"
 
     def cancelar(self):
         if self.atendido:

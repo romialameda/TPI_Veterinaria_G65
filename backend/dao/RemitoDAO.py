@@ -40,10 +40,9 @@ class RemitoDAO:
 
     def insertar_evento(self, remito, evento):
         cursor = self.db.ejecutar(
-            """INSERT INTO evento_traslado (id_remito, fecha_hora, ubicacion, descripcion, temperatura)
+            """INSERT INTO evento_traslado (id_remito, fecha_hora, ubicacion, novedad, descripcion)
                VALUES (?, ?, ?, ?, ?)""",
-            (remito.numero, a_texto(evento.fecha_hora), evento.ubicacion, evento.descripcion,
-             evento.temperatura_registrada),
+            (remito.numero, a_texto(evento.fecha_hora), evento.ubicacion, evento.novedad, evento.observacion),
         )
         evento.id_evento = cursor.lastrowid
 
@@ -69,7 +68,7 @@ class RemitoDAO:
             p.observaciones_inspeccion = f["observaciones"] or ""
 
         for f in self.db.consultar("SELECT * FROM evento_traslado ORDER BY fecha_hora"):
-            evento = EventoTraslado(a_fecha_hora(f["fecha_hora"]), f["ubicacion"], f["descripcion"], f["temperatura"])
+            evento = EventoTraslado(a_fecha_hora(f["fecha_hora"]), f["ubicacion"], f["novedad"], f["descripcion"])
             evento.id_evento = f["id_evento"]
             remitos[f["id_remito"]].eventos.append(evento)
 

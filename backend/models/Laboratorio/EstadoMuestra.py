@@ -4,7 +4,10 @@ from abc import ABC, abstractmethod
 # PATRÓN DE DISEÑO: STATE (ciclo de vida de la muestra biológica)
 #
 # Extraída -> Empaquetada -> En tránsito -> Recibida -> Analizada
-#                                        \-> Rechazada (precinto roto)
+#                                  |            |
+#                                  +------------+--> Rechazada
+#   - Desde En tránsito: precinto roto (todo el contenedor) o rechazo puntual al recibir
+#   - Desde Recibida: problema detectado en el laboratorio antes de analizarla
 #
 # Cada estado sabe qué transiciones admite. Las no permitidas lanzan
 # ValueError, sin necesidad de if/elif en MuestraBiologica.
@@ -31,6 +34,9 @@ class EstadoMuestra(ABC):
 
     def analizar(self, muestra, resultado):
         raise ValueError(f"No se puede analizar una muestra en estado: {self.nombre()}")
+
+    def rechazar(self, muestra, motivo, fecha_hora):
+        raise ValueError(f"No se puede rechazar una muestra en estado: {self.nombre()}")
 
     def __str__(self):
         return self.nombre()
@@ -68,6 +74,10 @@ class EstadoEnTransito(EstadoMuestra):
                 EstadoRechazada(), "Muestra rechazada: precinto sanitario roto o violado", fecha_hora
             )
 
+    def rechazar(self, muestra, motivo, fecha_hora):
+        """Rechazo puntual al recibir: el precinto está bien pero esta muestra llegó en mal estado."""
+        muestra.cambiar_estado(EstadoRechazada(), f"Muestra rechazada en la recepción: {motivo}", fecha_hora)
+
 
 class EstadoRecibida(EstadoMuestra):
     def nombre(self):
@@ -78,6 +88,10 @@ class EstadoRecibida(EstadoMuestra):
         muestra.cambiar_estado(
             EstadoAnalizada(), "Análisis completado y resultado emitido", resultado.fecha_emision
         )
+
+    def rechazar(self, muestra, motivo, fecha_hora):
+        """Problema detectado en el laboratorio antes de analizarla."""
+        muestra.cambiar_estado(EstadoRechazada(), f"Muestra rechazada en el laboratorio: {motivo}", fecha_hora)
 
 
 class EstadoRechazada(EstadoMuestra):

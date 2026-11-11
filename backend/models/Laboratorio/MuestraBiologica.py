@@ -19,6 +19,11 @@ class RegistroTrazabilidad:
 
 
 class MuestraBiologica:
+    MOTIVOS_RECHAZO = (
+        "Recipiente roto o derramado", "Muestra hemolizada o coagulada", "Volumen insuficiente",
+        "Mal rotulada o sin identificar", "Fuera de la cadena de frío", "Otro",
+    )
+
     TIPOS_MUESTRA = (
         "Sangre con EDTA", "Suero (sangre sin anticoagulante)", "Orina por cistocentesis", "Orina por micción",
         "Materia fecal", "Biopsia de tejido", "Hisopado", "Raspado de piel",
@@ -77,6 +82,22 @@ class MuestraBiologica:
     def analizar(self, resultado):
         self._estado_actual.analizar(self, resultado)
 
+    def rechazar(self, motivo, observacion="", fecha_hora=None):
+        """Rechazo de esta muestra puntual (no del contenedor completo)."""
+        if motivo not in self.MOTIVOS_RECHAZO:
+            raise ValueError(f"Motivo de rechazo inválido: {motivo}.")
+        if motivo == "Otro" and not (observacion or "").strip():
+            raise ValueError("Si el motivo es 'Otro', hay que describirlo en la observación.")
+        detalle = f"{motivo} ({observacion.strip()})" if (observacion or "").strip() else motivo
+        self._estado_actual.rechazar(self, detalle, fecha_hora)
+
+    def motivo_rechazo(self):
+        """Motivo registrado en la trazabilidad cuando la muestra pasó a Rechazada."""
+        for hito in reversed(self._historial_trazabilidad):
+            if isinstance(hito.estado, EstadoRechazada):
+                return hito.motivo
+        return None
+
     def restaurar(self, estado, historial):
         """Solo para reconstruir la muestra desde la base de datos (no notifica a los observadores)."""
         self._estado_actual = estado
@@ -112,6 +133,13 @@ class MuestraBiologica:
         if llegada is None or analisis is None:
             return None
         return (analisis - llegada).total_seconds() / 3600
+
+    def horas_hasta_resultado(self):
+        """Demora total: desde la extracción hasta que se cargó el resultado."""
+        analisis = self.fecha_de_estado(EstadoAnalizada)
+        if analisis is None:
+            return None
+        return (analisis - self.fecha_extraccion).total_seconds() / 3600
 
     def obtener_historial(self):
         """Copia de la trazabilidad de estados (no se puede modificar la lista original)."""

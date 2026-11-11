@@ -7,8 +7,8 @@ from services.ServicioClientes import ServicioClientes
 from services.ServicioAtencion import ServicioAtencion
 from services.ServicioLaboratorio import ServicioLaboratorio
 from Reports.GeneradorReportes import GeneradorReportes
+from models.clinica.Tarifario import Tarifario
 
-ARANCEL_LAB_POR_MUESTRA = 4500.0
 RUTA_DB_DEMO = Path(__file__).parent / "demo_veterinaria.db"
 
 
@@ -110,7 +110,7 @@ def main():
     # -------------------------------------------------------------------------
     seccion("3. Consultas médicas y derivaciones")
     # Atención de turnos: la mascota, el tipo y el motivo salen del turno
-    consulta_simon = atencion.atender_turno(turno_simon, t0, 18000.0)
+    consulta_simon = atencion.atender_turno(turno_simon, t0)
     atencion.registrar_diagnostico(
         consulta_simon,
         "Sospecha de infección bacteriana sistémica",
@@ -118,15 +118,15 @@ def main():
     )
     print(consulta_simon)
 
-    consulta_mora = atencion.atender_turno(turno_mora, t0 + timedelta(minutes=45), 12000.0)
-    intentar("Atender dos veces el mismo turno", lambda: atencion.atender_turno(turno_mora, t0, 1.0))
+    consulta_mora = atencion.atender_turno(turno_mora, t0 + timedelta(minutes=45))
+    intentar("Atender dos veces el mismo turno", lambda: atencion.atender_turno(turno_mora, t0))
     atencion.registrar_diagnostico(consulta_mora, "Sin hallazgos", "Desparasitación interna")
     print(consulta_mora)
     if consulta_mora.vacunas_pendientes_detectadas:
         print(f"  [AVISO VACUNAS] {mora.nombre} tiene pendientes: {', '.join(consulta_mora.vacunas_pendientes_detectadas)}")
 
     # Urgencia: llega sin turno
-    consulta_rocco = atencion.registrar_urgencia(t0, rocco, dr_gomez, "Decaimiento y pérdida de apetito", 15000.0)
+    consulta_rocco = atencion.registrar_urgencia(t0, rocco, dr_gomez, "Decaimiento y pérdida de apetito")
     atencion.registrar_diagnostico(consulta_rocco, "Hepatomegalia a la palpación", "Hepatoprotector y biopsia hepática")
     print(consulta_rocco)
     if consulta_rocco.vacunas_pendientes_detectadas:
@@ -157,7 +157,7 @@ def main():
     # -------------------------------------------------------------------------
     seccion("5. Cadena de envío - Sede Centro")
     laboratorio.despachar(remito_centro, t0 + timedelta(hours=1, minutes=30), "Logística Andina - Móvil 3")
-    laboratorio.registrar_evento_traslado(remito_centro, t0 + timedelta(hours=2), "Control Ruta 9", "Paso por punto de control", 4.5)
+    laboratorio.registrar_evento_traslado(remito_centro, t0 + timedelta(hours=2), "Control Ruta 9", "Sin novedad", "Paso por punto de control")
     intentar("Agregar muestras a un remito ya despachado",
              lambda: remito_centro.agregar_muestra(sangre))
 
@@ -176,16 +176,14 @@ def main():
     seccion("7. Resultados y comprobante de atención")
     laboratorio.registrar_resultado(
         t0 + timedelta(hours=6), sangre,
-        {"Glóbulos blancos": "Elevados", "Hematocrito": "Normal"},
-        "Infección confirmada. Requiere tratamiento antibiótico específico.", bioq_tevez,
+        "Leucocitos elevados, hematocrito normal. Infección confirmada: requiere tratamiento antibiótico.", bioq_tevez,
     )
     laboratorio.registrar_resultado(
         t0 + timedelta(hours=8), orina,
-        {"Densidad": 1.025, "Proteínas": "Trazas", "Bacterias": "Abundantes"},
-        "Sedimento urinario activo compatible con cistitis bacteriana.", bioq_tevez,
+        "Densidad 1.025, proteínas en trazas, bacterias abundantes. Compatible con cistitis bacteriana.", bioq_tevez,
     )
     comprobante = atencion.emitir_comprobante(
-        t0 + timedelta(hours=9), consulta_simon, ARANCEL_LAB_POR_MUESTRA
+        t0 + timedelta(hours=9), consulta_simon
     )
     print(comprobante)
 
@@ -196,7 +194,7 @@ def main():
     biopsia = laboratorio.registrar_extraccion("Biopsia de tejido", t0 + timedelta(minutes=50), orden_rocco)
     remito_norte = laboratorio.empaquetar(t0 + timedelta(hours=1), sede_norte, lab_central, conservadora_15, [biopsia])
     laboratorio.despachar(remito_norte, t0 + timedelta(hours=2), "Logística Andina - Móvil 7")
-    laboratorio.registrar_evento_traslado(remito_norte, t0 + timedelta(hours=3), "Ruta 19 km 12", "Bache fuerte, conservadora golpeada", 9.0)
+    laboratorio.registrar_evento_traslado(remito_norte, t0 + timedelta(hours=3), "Ruta 19 km 12", "Golpe o caída de la conservadora", "Bache fuerte")
 
     print("\nRecepción: el bioquímico detecta el precinto violado.")
     laboratorio.recibir_remito(
@@ -206,7 +204,7 @@ def main():
     print(remito_norte)
 
     intentar("Analizar una muestra rechazada",
-             lambda: laboratorio.registrar_resultado(t0 + timedelta(hours=6), biopsia, {}, "", bioq_tevez))
+             lambda: laboratorio.registrar_resultado(t0 + timedelta(hours=6), biopsia, "Informe", bioq_tevez))
 
     print("\nSe coordina una nueva extracción:")
     biopsia_2 = laboratorio.solicitar_reextraccion(biopsia, t0 + timedelta(days=1))
@@ -215,9 +213,26 @@ def main():
     laboratorio.recibir_remito(remito_norte_2, t0 + timedelta(days=1, hours=4), True, bioq_tevez)
     laboratorio.registrar_resultado(
         t0 + timedelta(days=2), biopsia_2,
-        {"Diagnóstico histológico": "Hepatitis crónica leve"},
-        "Sin evidencia de neoplasia.", bioq_tevez,
+        "Hepatitis crónica leve. Sin evidencia de neoplasia.", bioq_tevez,
     )
+
+    # -------------------------------------------------------------------------
+    # RECHAZO PUNTUAL: precinto intacto pero una muestra llega mal
+    # -------------------------------------------------------------------------
+    titulo("RECHAZO PUNTUAL DE UNA MUESTRA - Sede Centro")
+    orden_control = atencion.emitir_orden_derivacion(t0 + timedelta(days=3), consulta_mora, "Hemograma", lab_central)
+    sangre_mora = laboratorio.registrar_extraccion("Sangre con EDTA", t0 + timedelta(days=3), orden_control)
+    suero_mora = laboratorio.registrar_extraccion("Suero (sangre sin anticoagulante)", t0 + timedelta(days=3), orden_control)
+    remito_centro_2 = laboratorio.empaquetar(t0 + timedelta(days=3, hours=1), sede_centro, lab_central, conservadora_12,
+                                             [sangre_mora, suero_mora])
+    laboratorio.despachar(remito_centro_2, t0 + timedelta(days=3, hours=2), "Logística Andina - Móvil 3")
+    laboratorio.recibir_remito(remito_centro_2, t0 + timedelta(days=3, hours=3), True, bioq_tevez,
+                               rechazos={suero_mora.codigo_muestra: ("Recipiente roto o derramado", "")})
+    print(remito_centro_2, "| Con observaciones:", remito_centro_2.recibido_con_observaciones())
+    intentar("Rechazar con un motivo que no existe",
+             lambda: laboratorio.rechazar_muestra(sangre_mora, "Porque sí", "", bioq_tevez, t0 + timedelta(days=3, hours=4)))
+    laboratorio.rechazar_muestra(sangre_mora, "Volumen insuficiente", "", bioq_tevez, t0 + timedelta(days=3, hours=4))
+    print(sangre_mora, "|", sangre_mora.motivo_rechazo())
 
     # -------------------------------------------------------------------------
     # TRAZABILIDAD Y VISTAS POR ROL
@@ -282,27 +297,19 @@ def imprimir_reportes(repo):
         print(f"  * [{d['codigo']}] {d['tipo']} de {d['paciente']} | Remito #{d['remito']} | "
               f"{d['observacion_precinto']} | Re-extraída como: {d['reextraida']}")
 
-    seccion("3. Tratamientos aplicados y vacunas pendientes")
-    rep = generador.reporte_tratamientos_y_vacunas()
-    for p in rep["pacientes"]:
-        print(f"{p['paciente']} ({p['especie']}) - Responsable: {p['responsable']} ({p['contacto']})")
-        for t in p["tratamientos"]:
-            print(f"    {t['fecha'].strftime('%d/%m/%Y')}: {t['tratamiento']}")
-        print(f"    Vacunas pendientes: {', '.join(p['vacunas_pendientes']) or 'ninguna'}")
-    print(f"Pacientes con vacunas pendientes: {rep['con_vacunas_pendientes']}")
-
-    seccion("4. Facturación por clínica y servicios de laboratorio")
-    rep = generador.reporte_facturacion_por_clinica(ARANCEL_LAB_POR_MUESTRA)
+    seccion("3. Facturación por clínica y servicios de laboratorio")
+    rep = generador.reporte_facturacion_por_clinica(Tarifario.ARANCEL_ANALISIS_POR_MUESTRA)
     for clinica, f in rep["por_clinica"].items():
-        print(f"  {clinica}: consultas ${f['ingresos_consultas']:,.2f} | {f['muestras_analizadas']} muestras analizadas "
-              f"(${f['costo_laboratorio']:,.2f}) | rechazadas: {f['muestras_rechazadas']} | neto ${f['balance_neto']:,.2f}")
-    print(f"  TOTAL: ingresos ${rep['total_ingresos']:,.2f} | laboratorio ${rep['total_costo_laboratorio']:,.2f} | "
-          f"neto ${rep['total_balance_neto']:,.2f}")
+        print(f"  {clinica}: {f['cantidad_atenciones']} atenciones ${f['atenciones']:,.2f} | "
+              f"{f['muestras_analizadas']} análisis ${f['laboratorio']:,.2f} | total ${f['total']:,.2f}")
+    print(f"  TOTAL FACTURADO: ${rep['total_facturado']:,.2f} (atenciones ${rep['total_atenciones']:,.2f} + "
+          f"laboratorio ${rep['total_laboratorio']:,.2f})")
 
-    seccion("5. Tiempos de tránsito y procesamiento")
+    seccion("4. Tiempos de tránsito y procesamiento")
     rep = generador.reporte_tiempos()
     print(f"Tránsito promedio: {rep['promedio_transito_hs']} hs (máximo {rep['maximo_transito_hs']} hs)")
     print(f"Procesamiento promedio en laboratorio: {rep['promedio_procesamiento_hs']} hs")
+    print(f"Demora total promedio (extracción -> resultado): {rep['promedio_total_hs']} hs")
     for ruta, horas in rep["promedio_por_ruta_hs"].items():
         print(f"  {ruta}: {horas} hs")
 

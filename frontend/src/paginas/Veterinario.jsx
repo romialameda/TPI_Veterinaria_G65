@@ -1,23 +1,19 @@
 import { useEffect, useRef, useState } from 'react'
 import { api, fecha, fechaHora, hoy, hora, pesos } from '../api.js'
 import CampoFecha from '../componentes/CampoFecha.jsx'
-import CampoImporte from '../componentes/CampoImporte.jsx'
 
 // Pantalla del veterinario:
 //  1. Agenda del día: "Atender" crea la consulta con la mascota y el tipo del turno.
-//  2. Urgencia: atención sin turno; acá sí se elige la mascota.
+//  2. Urgencias de hoy: las registra recepción; el veterinario las abre y las atiende.
 //  3. Ficha de la atención elegida: diagnóstico, órdenes de derivación y extracciones.
-//  4. Historial de sus atenciones: "Abrir" muestra esa atención en la ficha.
+//  4. Historial de sus atenciones (solo consulta).
 // Un turno se puede atender en cualquier momento del día del turno (por si el paciente llega antes
 // o el anterior no vino), pero no un turno de otro día.
 export default function Veterinario({ usuario }) {
   const [dia, setDia] = useState(hoy())
   const [turnos, setTurnos] = useState([])
   const [consultas, setConsultas] = useState([])
-  const [mascotas, setMascotas] = useState([])
   const [idAbierta, setIdAbierta] = useState(null)   // Atención que se muestra en la ficha
-  const [costoTurno, setCostoTurno] = useState({})   // { id_turno: costo }
-  const [urgencia, setUrgencia] = useState({ id_mascota: '', motivo: '', costo: '' })
   const [error, setError] = useState('')
   const refFicha = useRef(null)
 
@@ -35,7 +31,6 @@ export default function Veterinario({ usuario }) {
   }
 
   useEffect(() => {
-    api.get('/mascotas').then(setMascotas)
     cargarConsultas()
   }, [])
 
@@ -43,7 +38,7 @@ export default function Veterinario({ usuario }) {
 
   async function atender(turno) {
     try {
-      const consulta = await api.post(`/turnos/${turno.id_turno}/atender`, { costo: Number(costoTurno[turno.id_turno]) })
+      const consulta = await api.post(`/turnos/${turno.id_turno}/atender`)
       setError('')
       await cargarConsultas()
       await cargarTurnos()
@@ -53,23 +48,9 @@ export default function Veterinario({ usuario }) {
     }
   }
 
-  async function registrarUrgencia(e) {
-    e.preventDefault()
-    try {
-      const consulta = await api.post('/consultas/urgencia', {
-        id_mascota: Number(urgencia.id_mascota), matricula_veterinario: usuario.matricula,
-        motivo: urgencia.motivo, costo: Number(urgencia.costo),
-      })
-      setError('')
-      setUrgencia({ id_mascota: '', motivo: '', costo: '' })
-      await cargarConsultas()
-      setIdAbierta(consulta.id_consulta)
-    } catch (err) {
-      setError(err.message)
-    }
-  }
 
   const abierta = consultas.find((c) => c.id_consulta === idAbierta)
+  const urgenciasHoy = consultas.filter((c) => c.tipo_atencion === 'Urgencia' && c.fecha_hora.slice(0, 10) === hoy())
 
   return (
     <>
@@ -96,11 +77,7 @@ export default function Veterinario({ usuario }) {
                     ) : t.inicio.slice(0, 10) < hoy() ? (
                       <span className="estado gris">No asistió</span>
                     ) : (
-                      <div className="fila">
-                        <CampoImporte valor={costoTurno[t.id_turno] || ''} placeholder="Costo"
-                          onCambio={(v) => setCostoTurno({ ...costoTurno, [t.id_turno]: v })} />
-                        <button disabled={!costoTurno[t.id_turno]} onClick={() => atender(t)}>Atender</button>
-                      </div>
+                      <button onClick={() => atender(t)}>Atender</button>
                     )}
                   </td>
                 </tr>
@@ -109,34 +86,35 @@ export default function Veterinario({ usuario }) {
           </table>
         </div>
 
-        <form onSubmit={registrarUrgencia} className="tarjeta">
-          <h3>2. Urgencia (sin turno)</h3>
-          <label>Mascota
-            <select value={urgencia.id_mascota} onChange={(e) => setUrgencia({ ...urgencia, id_mascota: e.target.value })} required>
-              <option value="">Elegir...</option>
-              {mascotas.map((m) => <option key={m.id_mascota} value={m.id_mascota}>{m.nombre} ({m.especie}) - {m.responsable}</option>)}
-            </select>
-          </label>
-          <p className="ayuda">¿No está en la lista? Pedile a recepción que registre al cliente y la mascota.</p>
-          <label>Motivo <input value={urgencia.motivo} onChange={(e) => setUrgencia({ ...urgencia, motivo: e.target.value })} required /></label>
-          <label>Costo <CampoImporte valor={urgencia.costo} onCambio={(v) => setUrgencia({ ...urgencia, costo: v })} required /></label>
-          <button type="submit">Registrar urgencia</button>
-        </form>
+        <div className="tarjeta urgencia">
+          <h3>2. Urgencias de hoy</h3>
+          <p className="ayuda">Las registra recepción cuando llega un paciente sin turno.</p>
+          {urgenciasHoy.length === 0 && <p>No hay urgencias.</p>}
+          <ul>
+            {urgenciasHoy.map((c) => (
+              <li key={c.id_consulta}>
+                {hora(c.fecha_hora)} - {c.mascota} ({c.responsable}): {c.motivo}{' '}
+                <button className={c.diagnostico ? 'secundario' : ''} onClick={() => setIdAbierta(c.id_consulta)}>
+                  {c.diagnostico ? 'Ver' : 'Atender'}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
 
-      <div ref={refFicha}>
+      <div ref={refFicha} className="ancla">
         {abierta && <FichaAtencion key={abierta.id_consulta} consulta={abierta} onCambio={cargarConsultas} onCerrar={() => setIdAbierta(null)} />}
       </div>
 
       <h3>4. Historial de mis atenciones</h3>
       <table>
-        <thead><tr><th>Fecha</th><th>Tipo</th><th>Mascota</th><th>Responsable</th><th>Diagnóstico</th><th>Costo</th><th></th></tr></thead>
+        <thead><tr><th>Fecha</th><th>Tipo</th><th>Mascota</th><th>Responsable</th><th>Diagnóstico</th><th className="numero">Costo</th></tr></thead>
         <tbody>
           {consultas.map((c) => (
-            <tr key={c.id_consulta} className={c.id_consulta === idAbierta ? 'seleccionada' : ''}>
+            <tr key={c.id_consulta}>
               <td>{fechaHora(c.fecha_hora)}</td><td>{c.tipo_atencion}</td><td>{c.mascota}</td><td>{c.responsable}</td>
               <td>{c.diagnostico || <span className="ayuda">Pendiente</span>}</td><td className="numero">{pesos(c.costo)}</td>
-              <td><button className="secundario" onClick={() => setIdAbierta(c.id_consulta)}>Abrir</button></td>
             </tr>
           ))}
         </tbody>
@@ -230,8 +208,9 @@ function FichaAtencion({ consulta: c, onCambio, onCerrar }) {
           <ul>
             {o.muestras.map((m) => (
               <li key={m.codigo}>
-                {m.codigo} - {m.tipo}: <span className="estado">{m.estado}</span>
-                {m.resultado && <> | Resultado: {Object.entries(m.resultado.valores).map(([p, v]) => `${p}: ${v}`).join(', ')}. {m.resultado.observaciones}</>}
+                {m.codigo} - {m.tipo}{m.reextraccion_de && ` (nueva extracción de ${m.reextraccion_de})`}: <span className="estado">{m.estado}</span>
+                {m.resultado && <> | Resultado: <span className="multilinea">{m.resultado.informe}</span></>}
+                {m.estado === 'Rechazada' && m.motivo_rechazo && <span className="alerta"> {m.motivo_rechazo.split(': ').pop()}</span>}
                 {m.reemplazada_por && <> (reemplazada por {m.reemplazada_por})</>}
                 {m.estado === 'Rechazada' && !m.reemplazada_por && (
                   <button onClick={() => ejecutar('orden' + o.id_orden, () => api.post(`/muestras/${m.codigo}/reextraccion`),
@@ -292,8 +271,9 @@ function HistoriaClinica({ idMascota, idConsultaActual, actualizacion }) {
               {o.tipo_estudio}:{' '}
               {o.muestras.map((mu) => (
                 <span key={mu.codigo}>
-                  {mu.tipo} <span className="estado">{mu.estado}</span>
-                  {mu.resultado && <> → {Object.entries(mu.resultado.valores).map(([p, v]) => `${p}: ${v}`).join(', ')}</>}{' '}
+                  {mu.tipo}{mu.reextraccion_de && ' (nueva extracción)'} <span className="estado">{mu.estado}</span>
+                  {mu.reemplazada_por && ' (se volvió a extraer)'}
+                  {mu.resultado && <> → <span className="multilinea">{mu.resultado.informe}</span></>}{' '}
                 </span>
               ))}
             </div>

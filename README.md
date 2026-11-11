@@ -102,17 +102,28 @@ El sistema se organiza en capas:
 ### 1. Patrón State: ciclo de vida de la muestra biológica
 Cada estado sabe qué transiciones admite; las inválidas lanzan `ValueError` sin `if/elif` anidados.
 
-`Extraída` → `Empaquetada` → `En tránsito` → `Recibida` → `Analizada`, o bien `En tránsito` → `Rechazada` si el precinto llega roto. `Rechazada` y `Analizada` son estados finales.
+`Extraída` → `Empaquetada` → `En tránsito` → `Recibida` → `Analizada`. Una muestra pasa a `Rechazada`:
+- desde `En tránsito`, si el precinto llega roto (se rechaza todo el contenedor) o si el bioquímico la rechaza puntualmente al recibir (recipiente roto, hemolizada, volumen insuficiente, mal rotulada...);
+- desde `Recibida`, si el problema se detecta en el laboratorio antes de analizarla.
+
+`Rechazada` y `Analizada` son estados finales; una muestra rechazada se puede volver a extraer (queda vinculada a la original).
 
 ### 2. Patrón State: ciclo de vida del remito biológico
 El remito coordina a sus muestras: cada transición del remito dispara la de todas sus muestras.
 
-`En preparación` → `En tránsito` → `Recibido`, o bien `Rechazado` si en la recepción el bioquímico informa el precinto violado. Solo se pueden agregar muestras en preparación, solo se registran eventos de traslado en tránsito y un remito no se puede recibir dos veces.
+`En preparación` → `En tránsito` → `Recibido`, o bien `Rechazado` si en la recepción el bioquímico informa el precinto violado. Si el precinto llegó intacto pero se rechazó alguna muestra puntual, el remito queda `Recibido` **con observaciones**. Solo se pueden agregar muestras en preparación, solo se registran eventos de traslado en tránsito y un remito no se puede recibir dos veces.
 
-### 3. Patrón Observer: auditoría y notificaciones
-Desacopla `MuestraBiologica` de las acciones derivadas de sus cambios de estado:
-- **`AuditorTrazabilidad`**: registra cada transición en una bitácora.
-- **`NotificadorCliente`**: avisa por WhatsApp si una muestra es rechazada (para coordinar la nueva extracción) y por email cuando **todas** las muestras vigentes de la orden fueron analizadas.
+### 3. Patrón Observer: persistencia y avisos
+Hay **dos sujetos observables**, cada uno con sus observadores:
+
+- **`MuestraBiologica`** avisa en cada cambio de estado a:
+  - **`PersistidorMuestra`**: guarda el nuevo estado y la trazabilidad en la base.
+  - **`NotificadorCliente`**: avisa al responsable de la mascota cuando todos los resultados de una orden están listos o cuando una muestra se rechaza.
+  - **`AvisoClinicaMuestra`**: avisa a la recepción de la clínica cuando el laboratorio rechaza una muestra que ya había recibido, con la mascota, el responsable (y su teléfono) y el veterinario.
+- **`RemitoBiologico`** avisa en cada cambio de estado a:
+  - **`AvisoClinica`**: avisa a la clínica de origen si el remito llegó con el precinto roto o se recibió con muestras rechazadas, indicando por cada muestra la mascota, el responsable (y su teléfono) y el veterinario. La recepción lo ve en **Avisos → Para las clínicas**.
+
+El envío de los avisos es **simulado** (no se integra un servicio real de email o WhatsApp): cada aviso se guarda en la tabla `notificacion` y el destinatario lo ve en el sistema (**Mis avisos** para el cliente, **Avisos** para recepción). Ni la muestra ni el remito saben quién los observa: se pueden sumar observadores sin modificarlos.
 
 ### 4. Patrón Singleton: conexión a la base de datos
 `Conexion()` devuelve siempre la misma instancia, así toda la aplicación comparte una única conexión a SQLite.
@@ -152,17 +163,39 @@ Cada entidad tiene su DAO (`ClienteDAO`, `MuestraDAO`, `RemitoDAO`…) con los m
 - Un veterinario no puede tener turnos superpuestos, ni turnos fuera de su horario (Mañana 09:00 a 13:00 / Tarde 16:00 a 20:00).
 - No se pueden agendar turnos en fechas u horas pasadas. La duración depende del tipo: Consulta 45 min, Control 30 min (límite 30 a 90).
 - Solo se pueden registrar vacunas del catálogo de la especie (`vacuna_catalogo`). Cada vacuna es vigente por 1 año: no se puede repetir mientras esté vigente y, al vencer, vuelve a figurar como pendiente.
-- Un turno se atiende solo el día del turno (a cualquier hora de ese día). Las urgencias se registran sin turno.
+- Un turno se atiende solo el día del turno (a cualquier hora de ese día). Las urgencias las registra recepción (sin turno, con precio de urgencia) y el veterinario las atiende desde "Urgencias de hoy".
 - Al registrar una atención se controla el esquema de vacunas obligatorias de la especie (`EsquemaVacunacion`).
 - Una conservadora no puede estar en dos remitos a la vez ni superar su capacidad.
 
 ## Reportes
 
-1. Atenciones clínicas y derivaciones por clínica y tipo de atención.
-2. Muestras rechazadas por fallas en el transporte (por clínica y transportista).
-3. Tratamientos aplicados y vacunas pendientes por paciente.
-4. Facturación desglosada por clínica y servicios de laboratorio.
-5. Tiempo promedio de tránsito y de procesamiento de muestras.
+En el front, **Reportes** abre un menú con los cinco reportes; cada uno tiene su página (con pestañas para pasar de uno a otro) con filtros arriba, y debajo indicadores, tablas y gráficos. **Los filtros se aplican a toda la página** (indicadores, tablas y gráficos). Las fechas de los filtros no pueden ser futuras y "hasta" no puede ser anterior a "desde". En la API cada reporte tiene su endpoint (`/reportes/atenciones`, `/reportes/rechazadas`, `/reportes/facturacion`, `/reportes/tiempos`, `/reportes/turnos`) y las opciones de los filtros salen de `/reportes/opciones`.
+
+| Reporte | Filtros |
+|---|---|
+| 1. Atenciones clínicas y derivaciones | Fechas, clínica, veterinario, responsable, paciente (de ese responsable), especie, tipo de atención |
+| 2. Muestras rechazadas (precinto roto o rechazo puntual, por causa) | Fechas, clínica, veterinario, especie, conservadora (en la API también se puede ordenar) |
+| 3. Facturación por clínica y servicios de laboratorio | Fechas, clínica, veterinario |
+| 4. Tiempos y demoras (tránsito, procesamiento y demora total por estudio) | Fechas, clínica, estudio, tipo de muestra |
+| 5. Turnos y asistencia (atendidos, ausentes, cancelados, pendientes; urgencias sin turno) | Fechas, sede, veterinario, tipo de turno, estado |
+
+- **Facturación:** lo cobrado a los clientes, desglosado en atenciones (precio fijo según el tipo) y servicios de laboratorio (arancel fijo por muestra analizada).
+- **Tiempos:** el tránsito es solo de ida (las muestras no vuelven); el procesamiento va de la recepción al resultado; la demora total va de la extracción al resultado y sirve para informarle al cliente cuánto va a tardar cada estudio.
+
+## Precios
+
+Los precios están en `backend/models/clinica/Tarifario.py`: Control (30 min) $12.000, Consulta (45 min) $18.000, Urgencia (sin turno) $30.000, y $4.500 por cada muestra analizada. El precio se informa al dar el turno y se aplica solo al registrar la atención: el veterinario no lo carga a mano.
+
+## Validaciones de datos de entrada
+
+Se validan en el modelo (`models/Validaciones.py`) y además en los formularios del front:
+
+- DNI: 7 u 8 números, sin letras ni puntos. Nombre y apellido: solo letras.
+- Teléfono: números, espacios o guiones (mínimo 7 números). Email: formato válido (opcional).
+- Mascota: nombre obligatorio, peso entre 0,1 y 150 kg, fecha de nacimiento no futura.
+- Atención y turno: motivo obligatorio.
+- Traslado: ubicación obligatoria, novedad de una lista (Sin novedad, Demora, Golpe, Conservadora dañada, Cadena de frío interrumpida, Otro; si es "Otro", la observación es obligatoria), transportista obligatorio al despachar.
+- Resultado de análisis: el bioquímico lo escribe como texto libre (obligatorio, hasta 3000 caracteres). Contraseña: mínimo 4 caracteres.
 
 ---
 

@@ -5,6 +5,7 @@ from datetime import timedelta
 
 from models.clinica.HorarioAtencion import HorarioAtencion
 from models.clinica.EsquemaVacunacion import EsquemaVacunacion
+from models.clinica.Tarifario import Tarifario
 
 
 def persona(p):
@@ -46,6 +47,7 @@ def turno(t):
         "id_turno": t.numero, "tipo": t.tipo, "inicio": t.inicio, "fin": t.fin, "duracion_minutos": t.duracion_minutos,
         "mascota": t.mascota.nombre, "especie": t.mascota.especie, "responsable": t.mascota.responsable.nombre_completo(),
         "id_mascota": t.mascota.id_mascota, "veterinario": t.veterinario.nombre_completo(),
+        "clinica": t.veterinario.clinica.nombre, "precio": Tarifario.precio_atencion(t.tipo),
         "motivo": t.motivo, "cancelado": t.cancelado, "atendido": t.atendido,
         "id_consulta": t.consulta.numero if t.consulta else None,
     }
@@ -54,8 +56,8 @@ def turno(t):
 def resultado(r):
     if r is None:
         return None
-    return {"id_resultado": r.numero, "fecha": r.fecha_emision, "valores": r.valores_obtenidos,
-            "observaciones": r.observaciones, "bioquimico": r.bioquimico.nombre_completo()}
+    return {"id_resultado": r.numero, "fecha": r.fecha_emision, "informe": r.informe,
+            "bioquimico": r.bioquimico.nombre_completo()}
 
 
 def muestra(m):
@@ -66,6 +68,8 @@ def muestra(m):
         "mascota": orden.consulta.mascota.nombre, "clinica": orden.clinica.nombre, "id_clinica": orden.clinica.id_clinica,
         "id_remito": m.remito.numero if m.remito else None,
         "reemplazada_por": m.reemplazada_por.codigo_muestra if m.reemplazada_por else None,
+        "reextraccion_de": m.muestra_original.codigo_muestra if m.muestra_original else None,
+        "motivo_rechazo": m.motivo_rechazo(),
         "resultado": resultado(m.resultado),
     }
 
@@ -95,10 +99,13 @@ def remito(r):
         "transportista": r.transportista, "fecha_despacho": r.fecha_despacho, "fecha_recepcion": r.fecha_recepcion,
         "precinto": {"codigo": p.codigo, "inspeccionado": p.inspeccionado, "intacto": p.esta_intacto,
                      "observaciones": p.observaciones_inspeccion},
-        "muestras": [{"codigo": m.codigo_muestra, "tipo": m.tipo_muestra, "estado": m.estado_actual.nombre()}
-                     for m in r.muestras],
-        "eventos": [{"fecha_hora": e.fecha_hora, "ubicacion": e.ubicacion, "descripcion": e.descripcion,
-                     "temperatura": e.temperatura_registrada} for e in r.eventos],
+        "muestras": [{"codigo": m.codigo_muestra, "tipo": m.tipo_muestra, "estado": m.estado_actual.nombre(),
+                      "motivo_rechazo": m.motivo_rechazo()} for m in r.muestras],
+        "con_observaciones": r.recibido_con_observaciones(),
+        "eventos": [{"fecha_hora": e.fecha_hora, "ubicacion": e.ubicacion, "novedad": e.novedad,
+                     "observacion": e.observacion, "tiene_novedad": e.tiene_novedad()} for e in r.eventos],
+        "novedades": [f"{e.novedad}{' - ' + e.observacion if e.observacion else ''} ({e.ubicacion})"
+                      for e in r.novedades_del_traslado()],
     }
 
 

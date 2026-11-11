@@ -5,6 +5,7 @@ from models.clinica.Veterinario import Veterinario
 from models.clinica.Turno import Turno
 from models.clinica.ConsultaMedica import ConsultaMedica
 from models.clinica.ComprobanteAtencion import ComprobanteAtencion
+from models.clinica.Tarifario import Tarifario
 from models.Laboratorio.OrdenDerivacion import OrdenDerivacion
 from dao.ClinicaDAO import ClinicaDAO
 from dao.VeterinarioDAO import VeterinarioDAO
@@ -83,8 +84,8 @@ class ServicioAtencion:
             self.turno_dao.actualizar(turno)
 
     # --- CONSULTAS ---
-    def atender_turno(self, turno, fecha_hora, costo):
-        """El veterinario atiende un turno: la mascota, el tipo y el motivo salen del turno."""
+    def atender_turno(self, turno, fecha_hora):
+        """El veterinario atiende un turno: la mascota, el tipo, el motivo y el precio salen del turno."""
         if turno.cancelado:
             raise ValueError("El turno está cancelado.")
         if turno.atendido:
@@ -92,21 +93,22 @@ class ServicioAtencion:
         if fecha_hora.date() != turno.inicio.date():
             raise ValueError("Un turno solo se puede atender el día del turno.")
         consulta = self._registrar_consulta(fecha_hora, turno.mascota, turno.veterinario, turno.motivo,
-                                            costo, turno.tipo, turno)
+                                            turno.tipo, turno)
         turno.consulta = consulta
         return consulta
 
-    def registrar_urgencia(self, fecha_hora, mascota, veterinario, motivo, costo):
-        """Atención sin turno previo."""
-        return self._registrar_consulta(fecha_hora, mascota, veterinario, motivo, costo, "Urgencia")
+    def registrar_urgencia(self, fecha_hora, mascota, veterinario, motivo):
+        """Atención sin turno previo (precio de urgencia)."""
+        return self._registrar_consulta(fecha_hora, mascota, veterinario, motivo, "Urgencia")
 
-    def _registrar_consulta(self, fecha_hora, mascota, veterinario, motivo, costo, tipo_atencion, turno=None):
+    def _registrar_consulta(self, fecha_hora, mascota, veterinario, motivo, tipo_atencion, turno=None):
         """
         Registra la atención y controla el esquema de vacunas obligatorias.
         Si faltan vacunas no se bloquea la atención: queda registrado para avisar y para el reporte.
         """
         if not mascota.activa:
             raise ValueError(f"{mascota.nombre} está dada de baja.")
+        costo = Tarifario.precio_atencion(tipo_atencion)
         consulta = ConsultaMedica(None, fecha_hora, mascota, veterinario, motivo, costo, tipo_atencion, turno)
         consulta.verificar_vacunacion_obligatoria()
         with self.db.transaccion():
@@ -132,7 +134,7 @@ class ServicioAtencion:
         return orden
 
     # --- COMPROBANTES ---
-    def emitir_comprobante(self, fecha_emision, consulta, arancel_por_muestra=0.0):
+    def emitir_comprobante(self, fecha_emision, consulta, arancel_por_muestra=Tarifario.ARANCEL_ANALISIS_POR_MUESTRA):
         """Comprobante de la atención; incluye los análisis ya realizados de sus derivaciones."""
         comprobante = ComprobanteAtencion(None, fecha_emision, consulta)
         comprobante.agregar_item(f"{consulta.tipo_atencion}: {consulta.motivo}"[:45], consulta.costo)

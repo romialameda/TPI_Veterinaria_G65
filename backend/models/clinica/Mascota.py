@@ -1,6 +1,7 @@
 from datetime import date, timedelta
 
 from models.clinica.EsquemaVacunacion import EsquemaVacunacion
+from models import Validaciones
 
 
 class Mascota:
@@ -10,11 +11,11 @@ class Mascota:
             raise ValueError("Toda mascota debe tener un responsable asociado.")
 
         self.id_mascota = id_mascota
-        self.nombre = nombre
+        self.nombre = Validaciones.texto_obligatorio(nombre, "Nombre de la mascota", 40)
         self.especie = especie
-        self.raza = raza
-        self.fecha_nacimiento = fecha_nacimiento
-        self.peso = peso
+        self.raza = (raza or "").strip()
+        self.fecha_nacimiento = Validaciones.fecha_no_futura(fecha_nacimiento, "fecha de nacimiento")
+        self.peso = Validaciones.numero_en_rango(peso, "Peso (kg)", 0.1, 150)
         self.responsable = responsable
         self.activa = True
         self.vacunas_aplicadas = []

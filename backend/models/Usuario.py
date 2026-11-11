@@ -9,6 +9,8 @@ class Usuario:
     def __init__(self, nombre_usuario, contrasena, rol, persona=None):
         if rol not in self.ROLES:
             raise ValueError(f"Rol inválido: {rol}")
+        if not contrasena or len(contrasena) < 4:
+            raise ValueError("La contraseña debe tener al menos 4 caracteres.")
         if rol != "Secretario" and persona is None:
             raise ValueError(f"Un usuario con rol {rol} debe estar asociado a una persona.")
         self.nombre_usuario = nombre_usuario

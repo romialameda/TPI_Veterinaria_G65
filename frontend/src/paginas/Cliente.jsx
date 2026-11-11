@@ -4,11 +4,24 @@ import { api, fecha, fechaHora, hoy } from '../api.js'
 // Vista de solo lectura: el cliente ve sus mascotas, su historia clínica y sus análisis
 export default function Cliente({ usuario }) {
   const [mascotas, setMascotas] = useState([])
+  const [avisos, setAvisos] = useState([])
 
-  useEffect(() => { api.get(`/clientes/${usuario.dni}/mascotas`).then(setMascotas) }, [])
+  useEffect(() => {
+    api.get(`/clientes/${usuario.dni}/mascotas`).then(setMascotas)
+    api.get(`/clientes/${usuario.dni}/avisos`).then(setAvisos)
+  }, [])
 
   return (
     <>
+      {avisos.length > 0 && (
+        <div className="tarjeta avisos-cliente">
+          <h3>Mis avisos</h3>
+          {avisos.map((a) => (
+            <p key={a.id}><span className="ayuda">{fechaHora(a.fecha)} · {a.canal}</span><br />{a.mensaje}</p>
+          ))}
+        </div>
+      )}
+
       <h2>Mis mascotas</h2>
       {mascotas.length === 0 && <p>No tenés mascotas registradas.</p>}
       {mascotas.map((m) => (
@@ -39,8 +52,10 @@ export default function Cliente({ usuario }) {
                   <ul>
                     {o.muestras.map((mu) => (
                       <li key={mu.codigo}>
-                        {mu.tipo}: <span className="estado">{mu.estado}</span>
-                        {mu.resultado && <> - {Object.entries(mu.resultado.valores).map(([p, v]) => `${p}: ${v}`).join(', ')}. {mu.resultado.observaciones}</>}
+                        {mu.tipo}{mu.reextraccion_de && ' (nueva extracción)'}: <span className="estado">{mu.estado}</span>
+                        {mu.motivo_rechazo && <span className="alerta"> {mu.motivo_rechazo.split(': ').pop()}</span>}
+                        {mu.reemplazada_por && ' - se volvió a extraer'}
+                        {mu.resultado && <> - <span className="multilinea">{mu.resultado.informe}</span></>}
                       </li>
                     ))}
                   </ul>

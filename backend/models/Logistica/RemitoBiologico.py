@@ -24,6 +24,7 @@ class RemitoBiologico:
         self.fecha_recepcion = None
         self.receptor = None         # Bioquímico que recibió
         self._estado = RemitoEnPreparacion()
+        self._observadores = []      # Patrón Observer
 
     def asignar_numero(self, numero):
         """Lo usa la base de datos al guardar el remito (el número es autogenerado)."""
@@ -49,8 +50,15 @@ class RemitoBiologico:
     def estado_actual(self):
         return self._estado
 
+    # --- PATRÓN OBSERVER ---
+    def agregar_observador(self, observador):
+        if observador not in self._observadores:
+            self._observadores.append(observador)
+
     def cambiar_estado(self, nuevo_estado):
         self._estado = nuevo_estado
+        for observador in self._observadores:
+            observador.actualizar(self, nuevo_estado)
 
     # --- DELEGACIÓN AL PATRÓN STATE ---
     def agregar_muestra(self, muestra, fecha_hora=None):
@@ -62,9 +70,17 @@ class RemitoBiologico:
     def registrar_evento(self, evento):
         self._estado.registrar_evento(self, evento)
 
-    def recibir_en_laboratorio(self, fecha_hora, precinto_intacto, receptor, observaciones=""):
-        """El receptor inspecciona el precinto e informa si llegó intacto."""
-        self._estado.recibir(self, fecha_hora, precinto_intacto, observaciones, receptor)
+    def recibir_en_laboratorio(self, fecha_hora, precinto_intacto, receptor, observaciones="", rechazos=None):
+        """El receptor inspecciona el precinto (y cada muestra) e informa cómo llegó."""
+        self._estado.recibir(self, fecha_hora, precinto_intacto, observaciones, receptor, rechazos or {})
+
+    def recibido_con_observaciones(self):
+        """Llegó con el precinto intacto, pero alguna muestra se rechazó al recibir."""
+        return self.precinto.es_valido() and any(m.esta_rechazada() for m in self.muestras)
+
+    def novedades_del_traslado(self):
+        """Eventos del viaje con alguna novedad (los ve el bioquímico al recibir)."""
+        return [e for e in self.eventos if e.tiene_novedad()]
 
     def cantidad_muestras(self):
         return len(self.muestras)
@@ -76,6 +92,7 @@ class RemitoBiologico:
 
     def __str__(self):
         return (
-            f"Remito #{self.numero} [{self._estado.nombre()}] | {self.clinica.nombre} -> {self.laboratorio.nombre} | "
+            f"Remito #{self.numero} [{self._estado.nombre()}{' con observaciones' if self.recibido_con_observaciones() else ''}] | "
+            f"{self.clinica.nombre} -> {self.laboratorio.nombre} | "
             f"Muestras: {self.cantidad_muestras()} | {self.precinto}"
         )

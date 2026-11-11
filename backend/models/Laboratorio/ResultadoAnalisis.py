@@ -1,9 +1,13 @@
+from models import Validaciones
+
+
 class ResultadoAnalisis:
-    def __init__(self, numero, fecha_emision, valores_obtenidos, observaciones, bioquimico):
+    """Resultado de un análisis: el bioquímico lo escribe como texto libre (informe)."""
+
+    def __init__(self, numero, fecha_emision, informe, bioquimico):
         self.numero = numero
         self.fecha_emision = fecha_emision
-        self.valores_obtenidos = valores_obtenidos  # {"Parámetro": valor}
-        self.observaciones = observaciones
+        self.informe = Validaciones.texto_obligatorio(informe, "Resultado", 3000)
         self.bioquimico = bioquimico
 
     def __str__(self):

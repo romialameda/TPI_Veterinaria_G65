@@ -2,7 +2,8 @@ from models.Laboratorio.Laboratorio import Laboratorio
 from models.Laboratorio.Bioquimico import Bioquimico
 from models.Laboratorio.MuestraBiologica import MuestraBiologica
 from models.Laboratorio.ResultadoAnalisis import ResultadoAnalisis
-from models.Laboratorio.ObserverMuestra import AuditorTrazabilidad, NotificadorCliente
+from models.Laboratorio.ObserverMuestra import NotificadorCliente, AvisoClinicaMuestra
+from models.Logistica.ObserverRemito import AvisoClinica
 from models.Logistica.Conservadora import Conservadora
 from models.Logistica.RemitoBiologico import RemitoBiologico
 from models.Logistica.EventoTraslado import EventoTraslado
@@ -13,13 +14,14 @@ from dao.MuestraDAO import MuestraDAO
 from dao.RemitoDAO import RemitoDAO
 from dao.ResultadoDAO import ResultadoDAO
 from dao.PersistidorMuestra import PersistidorMuestra
+from dao.NotificacionDAO import NotificacionDAO
 
 
 class ServicioLaboratorio:
     """
     Casos de uso de los procesos 4 a 7: extracción y empaquetado de muestras, cadena de envío,
     recepción con verificación del precinto y registro de resultados.
-    Conecta los observadores (auditoría, notificaciones y persistencia) a cada muestra.
+    Conecta los observadores (persistencia y avisos) a cada muestra y a cada remito.
     """
 
     def __init__(self, repositorio):
@@ -32,11 +34,23 @@ class ServicioLaboratorio:
         self.remito_dao = RemitoDAO(self.db)
         self.resultado_dao = ResultadoDAO(self.db)
 
-        self.auditor = AuditorTrazabilidad()
-        self.notificador = NotificadorCliente()
+        self.notificacion_dao = NotificacionDAO(self.db)
+
+        # Observadores (patrón Observer). Los avisos se "envían" guardándolos para que el destinatario los vea.
         self.persistidor = PersistidorMuestra(self.db)
-        for muestra in self.repo.muestras.values():  # Muestras que ya estaban en la base
+        self.notificador = NotificadorCliente(enviar=self._enviar_aviso)
+        self.aviso_clinica_muestra = AvisoClinicaMuestra(enviar=self._enviar_aviso)
+        self.aviso_clinica = AvisoClinica(enviar=self._enviar_aviso)
+        for muestra in self.repo.muestras.values():  # Muestras y remitos que ya estaban en la base
             self._suscribir_observadores(muestra)
+        for remito in self.repo.remitos.values():
+            remito.agregar_observador(self.aviso_clinica)
+
+    def _enviar_aviso(self, notificacion):
+        """Envío simulado: el aviso se guarda en la base y se muestra en la terminal."""
+        self.notificacion_dao.insertar(notificacion)  # Va dentro de la transacción de la operación en curso
+        self.repo.notificaciones.append(notificacion)
+        print(f"  -> [AVISO] {notificacion}")
 
     # --- DATOS MAESTROS ---
     def alta_laboratorio(self, nombre, direccion):
@@ -99,8 +113,8 @@ class ServicioLaboratorio:
 
     def _suscribir_observadores(self, muestra):
         muestra.agregar_observador(self.persistidor)
-        muestra.agregar_observador(self.auditor)
         muestra.agregar_observador(self.notificador)
+        muestra.agregar_observador(self.aviso_clinica_muestra)
 
     # --- REMITOS Y CADENA DE ENVÍO ---
     def empaquetar(self, fecha_emision, clinica, laboratorio, conservadora, muestras):
@@ -119,6 +133,7 @@ class ServicioLaboratorio:
                 raise ValueError(f"La muestra {m.codigo_muestra} no se puede empaquetar (estado: {m.estado_actual}).")
 
         remito = RemitoBiologico(None, fecha_emision, clinica, laboratorio, conservadora)  # Toma la conservadora
+        remito.agregar_observador(self.aviso_clinica)
         try:
             for m in muestras:
                 remito.verificar_circuito(m)
@@ -134,33 +149,40 @@ class ServicioLaboratorio:
         return remito
 
     def despachar(self, remito, fecha_hora, transportista):
-        evento = EventoTraslado(fecha_hora, remito.clinica.nombre, f"Retirado por {transportista}")
+        evento = EventoTraslado(fecha_hora, remito.clinica.nombre, "Sin novedad", f"Retirado por {transportista}")
         with self.db.transaccion():
             remito.despachar(fecha_hora, transportista)
             remito.registrar_evento(evento)
             self.remito_dao.actualizar(remito)
             self.remito_dao.insertar_evento(remito, evento)
 
-    def registrar_evento_traslado(self, remito, fecha_hora, ubicacion, descripcion, temperatura=None):
-        """Proceso 5: registra un punto de la cadena de envío."""
-        evento = EventoTraslado(fecha_hora, ubicacion, descripcion, temperatura)
+    def registrar_evento_traslado(self, remito, fecha_hora, ubicacion, novedad="Sin novedad", observacion=""):
+        """Proceso 5: registra un punto de la cadena de envío y si hubo alguna novedad."""
+        evento = EventoTraslado(fecha_hora, ubicacion, novedad, observacion)
         remito.registrar_evento(evento)
         with self.db.transaccion():
             self.remito_dao.insertar_evento(remito, evento)
 
-    def recibir_remito(self, remito, fecha_hora, precinto_intacto, receptor, observaciones=""):
+    def recibir_remito(self, remito, fecha_hora, precinto_intacto, receptor, observaciones="", rechazos=None):
         """Proceso 6: el bioquímico inspecciona el precinto y registra la recepción."""
         if receptor.laboratorio is not remito.laboratorio:
             raise ValueError(f"{receptor.nombre_completo()} no pertenece a {remito.laboratorio.nombre}.")
         with self.db.transaccion():
-            remito.recibir_en_laboratorio(fecha_hora, precinto_intacto, receptor, observaciones)
+            remito.recibir_en_laboratorio(fecha_hora, precinto_intacto, receptor, observaciones, rechazos)
             self.remito_dao.actualizar(remito)
         receptor.registrar_recepcion(remito)
 
+    def rechazar_muestra(self, muestra, motivo, observacion, bioquimico, fecha_hora):
+        """Rechazo de una muestra ya recibida, por un problema detectado en el laboratorio."""
+        if muestra.remito is None or bioquimico.laboratorio is not muestra.remito.laboratorio:
+            raise ValueError(f"La muestra {muestra.codigo_muestra} no está en el laboratorio de {bioquimico.nombre_completo()}.")
+        with self.db.transaccion():
+            muestra.rechazar(motivo, observacion, fecha_hora)  # El estado valida que esté Recibida
+
     # --- RESULTADOS ---
-    def registrar_resultado(self, fecha_emision, muestra, valores_obtenidos, observaciones, bioquimico):
-        """Proceso 7: carga el resultado; solo es posible si la muestra está Recibida."""
-        resultado = ResultadoAnalisis(None, fecha_emision, valores_obtenidos, observaciones, bioquimico)
+    def registrar_resultado(self, fecha_emision, muestra, informe, bioquimico):
+        """Proceso 7: carga el resultado (texto libre); solo es posible si la muestra está Recibida."""
+        resultado = ResultadoAnalisis(None, fecha_emision, informe, bioquimico)
         with self.db.transaccion():
             muestra.analizar(resultado)  # El estado valida si se puede analizar
             self.resultado_dao.insertar(resultado, muestra)

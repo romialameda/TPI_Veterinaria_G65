@@ -1,322 +1,201 @@
 @startuml diagrama_clases_dominio
-' Diagrama de clases del dominio (atributos, sin métodos) - TPI Veterinaria G65 (DAO, Tema 2)
-' Las referencias a otras clases se muestran como asociaciones (con rol, navegabilidad y cardinalidad),
-' no se repiten como atributos.
+' Diagrama de clases del dominio - TPI Veterinaria G65 (DAO, Tema 2)
+' Línea con flecha: navegable en ese sentido. Línea sin flecha: navegable en ambos sentidos.
 
-skinparam classAttributeIconSize 0
 skinparam shadowing false
-skinparam linetype polyline
-skinparam nodesep 60
-skinparam ranksep 70
+skinparam roundCorner 8
+skinparam linetype ortho
+skinparam nodesep 70
+skinparam ranksep 60
+skinparam defaultFontName Arial
+skinparam classAttributeIconSize 0
 skinparam class {
-  BackgroundColor #FFFDF6
-  BorderColor #8A6A3A
-  ArrowColor #555555
+  BackgroundColor #FBE7A1
+  BorderColor #3A3A3A
+  BorderThickness 1.5
+  ArrowColor #3A3A3A
+  FontStyle bold
+  FontSize 15
+  AttributeFontSize 13
+  StereotypeFontSize 11
 }
-skinparam package {
-  BackgroundColor #FBF4E4
-  BorderColor #C9A86A
-}
-hide empty members
+hide circle
+hide empty methods
+hide empty fields
 
-' =====================================================================
-abstract class Persona #EAF0FA {
-  - dni : str
-  - nombre : str
-  - apellido : str
-  - telefono : str
-  - email : str
-}
-
-class Cliente #EAF0FA {
-  - activo : bool
+abstract class Persona {
+  -dni
+  -nombre
+  -apellido
+  -telefono
+  -email
 }
 
-class Veterinario #EAF0FA {
-  - {static} INTERVALO_AGENDA : int = 15
-  - matricula : str
-  - especialidad : str
-  - turno_laboral : str
+class Cliente {
+  -esActivo
 }
 
-class Bioquimico #EAF0FA {
-  - matricula : str
+class Veterinario {
+  -matricula
+  -especialidad
+  -turno_laboral
 }
 
-class Usuario #EAF0FA {
-  - {static} ROLES : tuple
-  - nombre_usuario : str
-  - contrasena : str
-  - rol : str
+class Bioquimico {
+  -matricula
 }
 
-' =====================================================================
-class Clinica #FFF6E0 {
-  - id_clinica : int
-  - nombre : str
-  - direccion : str
+class Clinica {
+  -id
+  -nombre
+  -direccion
 }
 
-class Mascota #FFF6E0 {
-  - id_mascota : int
-  - nombre : str
-  - especie : str
-  - raza : str
-  - fecha_nacimiento : date
-  - peso : float
-  - activa : bool
+class Mascota {
+  -id
+  -nombre
+  -especie
+  -raza
+  -fecha_nacimiento
+  -peso
+  -esActiva
 }
 
-class Vacuna #FFF6E0 {
-  - id_vacuna : int
-  - nombre : str
-  - fecha_aplicacion : date
+class Vacuna {
+  -nombre
+  -fecha_aplicacion
 }
 
-class Turno #FFF6E0 {
-  - {static} DURACIONES : dict
-  - {static} DURACION_MINIMA : int = 30
-  - {static} DURACION_MAXIMA : int = 90
-  - numero : int
-  - inicio : datetime
-  - tipo : str
-  - duracion_minutos : int
-  - motivo : str
-  - cancelado : bool
+class Turno {
+  -numero
+  -inicio
+  -tipo
+  -duracion_minutos
+  -motivo
+  -cancelado
 }
 
-class ConsultaMedica #FFF6E0 {
-  - {static} TIPOS_ATENCION : tuple
-  - numero : int
-  - fecha_hora : datetime
-  - tipo_atencion : str
-  - motivo : str
-  - costo : float
-  - diagnostico : str
-  - tratamiento : str
-  - vacunas_pendientes_detectadas : list
+class "Consulta medica" as Consulta {
+  -numero
+  -fecha_hora
+  -tipo_atencion
+  -motivo
+  -costo
+  -diagnostico
+  -tratamiento
 }
 
-class ComprobanteAtencion #FFF6E0 {
-  - numero : int
-  - fecha_emision : datetime
+class Comprobante {
+  -numero
+  -fecha_emision
 }
 
-class ItemComprobante #FFF6E0 {
-  - id_item : int
-  - descripcion : str
-  - importe : float
+class Orden {
+  -numero
+  -fecha_hora
+  -tipo_estudio
 }
 
-class EsquemaVacunacion <<utilidad>> #FFF6E0 {
-  - {static} VIGENCIA_DIAS : int = 365
-  - {static} CATALOGO : dict
+class Laboratorio {
+  -id
+  -nombre
+  -direccion
 }
 
-class HorarioAtencion <<utilidad>> #FFF6E0 {
-  - {static} TURNOS_LABORALES : dict
+class Muestra {
+  -codigo
+  -fecha_extraccion
+  -tipo_muestra
 }
 
-class Tarifario <<utilidad>> #FFF6E0 {
-  - {static} PRECIOS_ATENCION : dict
-  - {static} ARANCEL_ANALISIS_POR_MUESTRA : float = 4500
+class "Estado muestra" as EstadoMuestra <<State>> {
+  Extraída
+  Empaquetada
+  En tránsito
+  Recibida
+  Analizada
+  Rechazada
 }
 
-' =====================================================================
-class Laboratorio #EEF3DC {
-  - id_laboratorio : int
-  - nombre : str
-  - direccion : str
+class "Registro trazabilidad" as Trazabilidad {
+  -estado
+  -fecha_hora
+  -motivo
 }
 
-class OrdenDerivacion #EEF3DC {
-  - {static} ESTUDIOS : tuple
-  - numero : int
-  - fecha_emision : datetime
-  - tipo_estudio : str
+class "Resultado analisis" as Resultado {
+  -numero
+  -fecha
+  -informe
 }
 
-class MuestraBiologica <<Context (State) / Subject (Observer)>> #EEF3DC {
-  - {static} MOTIVOS_RECHAZO : tuple
-  - {static} TIPOS_MUESTRA : tuple
-  - codigo_muestra : str
-  - tipo_muestra : str
-  - fecha_extraccion : datetime
+class Remito {
+  -numero
+  -fecha_emision
+  -transportista
+  -fecha_despacho
+  -fecha_recepcion
 }
 
-class RegistroTrazabilidad #EEF3DC {
-  - estado_nombre : str
-  - fecha_hora : datetime
-  - motivo : str
+class "Estado remito" as EstadoRemito <<State>> {
+  En preparación
+  En tránsito
+  Recibido
+  Rechazado
 }
 
-class ResultadoAnalisis #EEF3DC {
-  - numero : int
-  - fecha_emision : datetime
-  - informe : str
+class Conservadora {
+  -numero
+  -capacidad
+  -temperatura
 }
 
-abstract class EstadoMuestra <<State>> #EEF3DC {
-}
-class EstadoExtraida #EEF3DC {
-}
-class EstadoEmpaquetada #EEF3DC {
-}
-class EstadoEnTransito #EEF3DC {
-}
-class EstadoRecibida #EEF3DC {
-}
-class EstadoAnalizada #EEF3DC {
-}
-class EstadoRechazada #EEF3DC {
+class Precinto {
+  -codigo
+  -estaIntacto
+  -observaciones
 }
 
-interface ObservadorMuestra <<Observer>> #EEF3DC {
-}
-class NotificadorCliente #EEF3DC {
-}
-class AvisoClinicaMuestra #EEF3DC {
-}
-
-' =====================================================================
-class RemitoBiologico <<Context (State) / Subject (Observer)>> #FBE6DC {
-  - numero : int
-  - fecha_emision : datetime
-  - transportista : str
-  - fecha_despacho : datetime
-  - fecha_recepcion : datetime
+class "Evento traslado" as Evento {
+  -fecha_hora
+  -ubicacion
+  -novedad
+  -observacion
 }
 
-class PrecintoSanitario #FBE6DC {
-  - codigo : str
-  - inspeccionado : bool
-  - esta_intacto : bool
-  - observaciones_inspeccion : str
-}
-
-class Conservadora #FBE6DC {
-  - numero : int
-  - capacidad_maxima : int
-  - temperatura_objetivo : float
-}
-
-class EventoTraslado #FBE6DC {
-  - {static} NOVEDADES : tuple
-  - id_evento : int
-  - fecha_hora : datetime
-  - ubicacion : str
-  - novedad : str
-  - observacion : str
-}
-
-abstract class EstadoRemito <<State>> #FBE6DC {
-}
-class RemitoEnPreparacion #FBE6DC {
-}
-class RemitoEnTransito #FBE6DC {
-}
-class RemitoRecibido #FBE6DC {
-}
-class RemitoRechazado #FBE6DC {
-}
-
-interface ObservadorRemito <<Observer>> #FBE6DC {
-}
-class AvisoClinica #FBE6DC {
-}
-
-class Notificacion {
-  - {static} DESTINATARIOS : tuple
-  - id_notificacion : int
-  - fecha_hora : datetime
-  - destinatario_tipo : str
-  - destinatario_id : str
-  - canal : str
-  - mensaje : str
-}
-
-' =====================================================================
-' HERENCIA / REALIZACIÓN
+' --- Herencia ---
 Persona <|-- Cliente
 Persona <|-- Veterinario
 Persona <|-- Bioquimico
 
-EstadoMuestra <|-- EstadoExtraida
-EstadoMuestra <|-- EstadoEmpaquetada
-EstadoMuestra <|-- EstadoEnTransito
-EstadoMuestra <|-- EstadoRecibida
-EstadoMuestra <|-- EstadoAnalizada
-EstadoMuestra <|-- EstadoRechazada
+' --- Clínica ---
+Cliente "1" -- "0..*" Mascota
+Mascota "1" --> "0..*" Vacuna
+Mascota "1" -- "0..*" Consulta
+Clinica "1" -- "1..*" Veterinario
+Veterinario "1" -- "0..*" Turno
+Turno "0..*" --> "1" Mascota
+Turno "0..1" -- "0..1" Consulta
+Veterinario "1" -- "0..*" Consulta
+Comprobante "0..*" --> "1" Consulta
 
-EstadoRemito <|-- RemitoEnPreparacion
-EstadoRemito <|-- RemitoEnTransito
-EstadoRemito <|-- RemitoRecibido
-EstadoRemito <|-- RemitoRechazado
+' --- Laboratorio ---
+Consulta "1" -- "0..*" Orden
+Orden "0..*" --> "1" Laboratorio
+Laboratorio "1" -- "1..*" Bioquimico
+Orden "1" -- "1..*" Muestra
+Muestra "0..*" --> "1" EstadoMuestra
+Muestra "1" --> "1..*" Trazabilidad
+Muestra "1" --> "0..1" Resultado
+Resultado "0..*" -- "1" Bioquimico
 
-ObservadorMuestra <|.. NotificadorCliente
-ObservadorMuestra <|.. AvisoClinicaMuestra
-ObservadorRemito <|.. AvisoClinica
-
-' =====================================================================
-' ASOCIACIONES (rol, navegabilidad y cardinalidad)
-Usuario "0..*" --> "0..1" Persona : persona
-
-Cliente "1 responsable" <--> "0..* mascotas" Mascota
-Mascota "1" *--> "0..* vacunas_aplicadas" Vacuna
-Mascota "1 mascota" <--> "0..* consultas" ConsultaMedica
-
-Clinica "1 clinica" <--> "1..* veterinarios" Veterinario
-Clinica "1 clinica" <--> "0..* consultas" ConsultaMedica
-
-Veterinario "1 veterinario" <--> "0..* turnos" Turno
-Veterinario "1 veterinario" <--> "0..* consultas" ConsultaMedica
-Turno "0..*" --> "1 mascota" Mascota
-Turno "0..1 turno" <--> "0..1 consulta" ConsultaMedica
-
-ConsultaMedica "1 consulta" *--> "0..* ordenes_derivacion" OrdenDerivacion
-ComprobanteAtencion "0..*" --> "1 consulta" ConsultaMedica
-ComprobanteAtencion "1" *--> "1..* items" ItemComprobante
-
-Laboratorio "1 laboratorio" <--> "1..* bioquimicos" Bioquimico
-OrdenDerivacion "0..*" --> "1 laboratorio" Laboratorio
-OrdenDerivacion "1 orden_derivacion" <--> "0..* muestras" MuestraBiologica
-
-MuestraBiologica "1" *--> "1..* historial_trazabilidad" RegistroTrazabilidad
-RegistroTrazabilidad "0..*" --> "1 estado" EstadoMuestra
-MuestraBiologica "0..*" --> "1 estado_actual" EstadoMuestra
-MuestraBiologica "1" --> "0..1 resultado" ResultadoAnalisis
-ResultadoAnalisis "0..* resultados_firmados" <--> "1 bioquimico" Bioquimico
-MuestraBiologica "0..1 muestra_original" <--> "0..1 reemplazada_por" MuestraBiologica
-MuestraBiologica "0..*" --> "0..* observadores" ObservadorMuestra
-
-RemitoBiologico "0..1 remito" <--> "1..* muestras" MuestraBiologica
-RemitoBiologico "0..*" --> "1 clinica" Clinica
-RemitoBiologico "0..*" --> "1 laboratorio" Laboratorio
-RemitoBiologico "0..1 remito_actual" <--> "1 conservadora" Conservadora
-RemitoBiologico "1" *--> "1 precinto" PrecintoSanitario
-RemitoBiologico "1" *--> "0..* eventos" EventoTraslado
-RemitoBiologico "0..* remitos_recibidos" <--> "0..1 receptor" Bioquimico
-RemitoBiologico "0..*" --> "1 estado" EstadoRemito
-RemitoBiologico "0..*" --> "0..* observadores" ObservadorRemito
-
-' =====================================================================
-' DEPENDENCIAS
-NotificadorCliente ..> Notificacion : <<crea>>
-AvisoClinicaMuestra ..> Notificacion : <<crea>>
-AvisoClinica ..> Notificacion : <<crea>>
-Mascota ..> EsquemaVacunacion : <<usa>>
-Veterinario ..> HorarioAtencion : <<usa>>
-ComprobanteAtencion ..> Tarifario : <<usa>>
-
-legend right
-  <b>Lectura</b>
-  <back:#EAF0FA> Personas </back> <back:#FFF6E0> Clínica </back> <back:#EEF3DC> Laboratorio </back> <back:#FBE6DC> Logística </back>
-  ~--> navegable en un sentido;  <~--> navegable en ambos
-  *~--> composición (la parte vive dentro del todo);
-         si hay rol del lado del rombo, la parte también conoce al todo
-  ..> dependencia (crea / usa)
-  Patrones: State (EstadoMuestra, EstadoRemito),
-  Observer (ObservadorMuestra, ObservadorRemito)
-endlegend
+' --- Logística ---
+Muestra "1..*" -down- "0..1" Remito
+Remito "0..*" -down-> "1" EstadoRemito
+Remito "0..1" -left- "1" Conservadora
+Remito "1" -down-> "1" Precinto
+Remito "1" -down-> "0..*" Evento
+Remito "0..*" -up-> "1" Clinica
+Remito "0..*" -right-> "1" Laboratorio
 
 @enduml

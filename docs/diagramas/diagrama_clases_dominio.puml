@@ -4,8 +4,8 @@
 
 skinparam shadowing false
 skinparam roundCorner 8
-skinparam linetype ortho
-skinparam nodesep 70
+skinparam linetype polyline
+skinparam nodesep 90
 skinparam ranksep 60
 skinparam defaultFontName Arial
 skinparam classAttributeIconSize 0
@@ -22,6 +22,12 @@ skinparam class {
 hide circle
 hide empty methods
 hide empty fields
+
+class Usuario {
+  -nombre_usuario
+  -contrasena
+  -rol
+}
 
 abstract class Persona {
   -dni
@@ -163,6 +169,10 @@ class "Evento traslado" as Evento {
   -observacion
 }
 
+' --- Usuarios ---
+' rol: Secretario, Veterinario, Bioquímico o Cliente. El secretario no tiene persona asociada.
+Usuario "0..*" --> "0..1" Persona
+
 ' --- Herencia ---
 Persona <|-- Cliente
 Persona <|-- Veterinario
@@ -175,9 +185,10 @@ Mascota "1" -- "0..*" Consulta
 Clinica "1" -- "1..*" Veterinario
 Veterinario "1" -- "0..*" Turno
 Turno "0..*" --> "1" Mascota
-Turno "0..1" -- "0..1" Consulta
+Turno "0..1" -down- "0..1" Consulta
+Veterinario -[hidden]right- Turno
 Veterinario "1" -- "0..*" Consulta
-Comprobante "0..*" --> "1" Consulta
+Comprobante "0..*" -left-> "1" Consulta
 
 ' --- Laboratorio ---
 Consulta "1" -- "0..*" Orden
@@ -192,10 +203,10 @@ Resultado "0..*" -- "1" Bioquimico
 ' --- Logística ---
 Muestra "1..*" -down- "0..1" Remito
 Remito "0..*" -down-> "1" EstadoRemito
-Remito "0..1" -left- "1" Conservadora
+Remito "0..1" -right- "1" Conservadora
 Remito "1" -down-> "1" Precinto
 Remito "1" -down-> "0..*" Evento
 Remito "0..*" -up-> "1" Clinica
-Remito "0..*" -right-> "1" Laboratorio
+Remito "0..*" -up-> "1" Laboratorio
 
 @enduml
